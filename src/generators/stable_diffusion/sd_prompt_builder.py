@@ -59,3 +59,25 @@ class SDPromptBuilder:
             neg = f"{neg}, {gen_type.negative_prompt}" if neg else gen_type.negative_prompt
         ad_neg = self.neg.get("adetailer_negative", "")
         return prompt, neg, ad_neg
+
+    def generate_pose_prompt(self, gen_type) -> str:
+        """ポーズプロンプト生成（ポーズ指定モード用・新規追加）"""
+        if self.pose_mode != "specification":
+            return ""
+
+        # random_elements.yamlからposesカテゴリを取得
+        poses = self.specific_random_elements.get('poses', [])
+        if not poses:
+            print("⚠️ poses カテゴリが見つかりません")
+            return ""
+
+        # ランダムポーズ選択（重複回避）
+        if hasattr(self, 'random_element_generator') and self.random_element_generator:
+            selected_pose = self.random_element_generator.enhanced_random.choice_no_repeat(
+                poses, "poses", window=5
+            )
+        else:
+            selected_pose = secrets.choice(poses)
+
+        print(f"🎯 選択されたポーズ: {selected_pose}")
+        return f", {selected_pose}"

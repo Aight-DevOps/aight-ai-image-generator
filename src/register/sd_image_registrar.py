@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Stable Diffusion Image Registrar - SD画像登録管理クラス
+Stable Diffusion Image Registrar - SD画像登録管理クラス（完全版）
 """
 
 import os
@@ -22,7 +22,7 @@ from ..utils.timer import ProcessTimer
 JST = timezone(timedelta(hours=9))
 
 class SDImageRegistrar:
-    """Stable Diffusion画像登録管理クラス（DynamoDB Float型エラー修正版）"""
+    """Stable Diffusion画像登録管理クラス（DynamoDB Float型エラー修正版・完全版）"""
 
     def __init__(self, config_manager: ConfigManager):
         """
@@ -47,7 +47,7 @@ class SDImageRegistrar:
             'duplicates': 0
         }
         
-        self.logger.print_stage("🚀 SD画像登録ツール初期化完了（DynamoDB Float型エラー修正版）")
+        self.logger.print_stage("🚀 SD画像登録ツール初期化完了（DynamoDB Float型エラー修正版・完全版）")
 
     def _load_register_config(self) -> Dict[str, Any]:
         """登録専用設定読み込み"""
@@ -70,7 +70,8 @@ class SDImageRegistrar:
                     'cleanup_local_files_on_success': True,
                     'skip_on_individual_errors': True,
                     'abort_on_aws_connection_errors': True,
-                    'supported_image_formats': ["png", "jpg", "jpeg"]
+                    'supported_image_formats': ["png", "jpg", "jpeg"],
+                    'delay_between_items': 1
                 },
                 'default_suitable_slots': ["early_morning", "morning", "lunch", "evening", "night", "mid_night", "general"]
             }
@@ -462,7 +463,7 @@ class SDImageRegistrar:
 
     def process_batch(self, genre: str) -> int:
         """
-        バッチ処理
+        バッチ処理（完全版）
         
         Args:
             genre: 処理対象ジャンル
@@ -518,7 +519,7 @@ class SDImageRegistrar:
         return self.stats['success']
 
     def print_final_summary(self):
-        """最終サマリー表示"""
+        """最終サマリー表示（完全版）"""
         self.logger.print_stage("=== 処理結果サマリー (DynamoDB Float型エラー修正版) ===")
         self.logger.print_status(f"📊 検出ファイル: {self.stats['total_found']}ペア")
         self.logger.print_success(f"✅ 成功: {self.stats['success']}件")
@@ -533,8 +534,8 @@ class SDImageRegistrar:
             self.logger.print_success("🎉 登録されたデータは正常なDynamoDB形式で保存されています")
 
     def show_menu_and_process(self):
-        """メニュー表示・処理実行"""
-        self.logger.print_stage("🚀 SD画像登録ツール (DynamoDB Float型エラー修正版)")
+        """メニュー表示・処理実行（完全版）"""
+        self.logger.print_stage("🚀 SD画像登録ツール (DynamoDB Float型エラー修正版・完全版)")
 
         available_genres = list(self.register_config['batch_directories'].keys())
 

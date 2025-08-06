@@ -131,3 +131,9 @@ class ConfigManager:
     def is_bedrock_enabled(self) -> bool:
         """Bedrock機能が有効かどうか"""
         return bool(self.get_bedrock_config().get("enabled", False))
+
+    def get_adetailer_config(self) -> Dict[str, Any]:
+        """
+        ADetailer 設定を取得
+        """
+        return self._main_config.get('adetailer', {})
