@@ -1,0 +1,43 @@
+# Hybrid Bijo Register v9 設定ファイル
+
+# AWS設定
+aws:
+  region: "ap-northeast-1"
+  s3_bucket: "aight-media-images"
+  dynamodb_table: "AightMediaImageData"
+
+# Bedrock機能設定
+bedrock:
+  enabled: true
+  lambda_function_name: "aight_bedrock_comment_generator"
+
+# ジャンル別ディレクトリ設定（バッチ処理用）
+batch_directories:
+  gyal_black: "/mnt/e/Repository/aight_SDXL_bijo_generator_v9/output/test_images/gyal_black"
+  gyal_natural: "/mnt/e/Repository/aight_SDXL_bijo_generator_v9/output/test_images/gyal_natural"
+  gyal_erotic: "/mnt/e/Repository/aight_SDXL_bijo_generator_v9/output/test_images/gyal_erotic"
+  normal: "/mnt/e/Repository/aight_SDXL_bijo_generator_v9/output/test_images/normal"
+  seiso: "/mnt/e/Repository/aight_SDXL_bijo_generator_v9/output/test_images/seiso"
+  teen: "/mnt/e/Repository/aight_SDXL_bijo_generator_v9/output/test_images/teen"
+
+# 処理設定
+processing:
+  cleanup_local_files_on_success: true
+  skip_on_individual_errors: true
+  abort_on_aws_connection_errors: true
+  supported_image_formats: ["png", "jpg", "jpeg"]
+  
+# エラーハンドリング
+error_handling:
+  max_individual_retries: 0  # リトライなし
+  log_duplicate_errors: true
+  continue_on_bedrock_errors: true
+
+# デフォルト時間帯スロット
+default_suitable_slots: ["early_morning", "morning", "lunch", "evening", "night", "mid_night", "general"]
+
+# ログ設定
+logging:
+  level: "INFO"
+  detailed_progress: true
+  show_metadata_preview: false
