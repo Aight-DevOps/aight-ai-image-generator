@@ -5,112 +5,107 @@
 ImageProcessor - 画像前処理・最終仕上げ処理
 - preprocess_input_image: SDXL用リサイズ
 - encode_image_to_base64: Base64 エンコード
-- apply_final_enhancement: ImageMagick or PIL 処理
+- apply_final_enhancement: ImageMagick / PIL 仕上げ
 """
 
 import os
+import time
 import base64
 import subprocess
+import shutil
 from PIL import Image, ImageFilter, ImageEnhance
 from common.logger import ColorLogger
+from datetime import datetime, timezone, timedelta
+
+# JST
+JST = timezone(timedelta(hours=9))
 
 class ImageProcessor:
     """画像前処理・最終仕上げ処理クラス"""
 
-    def __init__(self, config, temp_dir, pose_mode):
-        """
-        Args:
-            config: 設定 dict
-            temp_dir: 一時ディレクトリパス
-            pose_mode: 'detection' or 'specification'
-        """
+    def __init__(self, config: dict, temp_dir: str, pose_mode: str):
         self.logger = ColorLogger()
-        self.sdxl_config = config.get('sdxl_generation', {})
-        self.input_images_config = config.get('input_images', {})
+        self.config = config
         self.temp_dir = temp_dir
         self.pose_mode = pose_mode
 
-    def preprocess_input_image(self, image_path: str) -> str | None:
+        self.sdxl_cfg = config.get('sdxl_generation', {})
+        self.input_cfg = config.get('input_images', {})
+
+    def preprocess_input_image(self, image_path: str) -> str:
         """
-        SDXL 用入力画像リサイズ
-        Returns: リサイズ後ファイルパス or None
+        ControlNet-SDXL 用画像前処理（リサイズ）  
+        ポーズ指定モードではスキップ
         """
-        # ポーズ指定モードではスキップ
         if self.pose_mode == "specification":
-            self.logger.print_status("🎯 ポーズ指定モード: 前処理をスキップ")
+            self.logger.print_status("🎯 ポーズ指定モード: 前処理スキップ")
             return None
 
-        self.logger.print_status("ControlNet-SDXL用画像リサイズ中...")
-        target_w = self.sdxl_config.get('width')
-        target_h = self.sdxl_config.get('height')
-        img = Image.open(image_path)
-        img = img.resize((target_w, target_h), Image.LANCZOS)
+        self.logger.print_status("🔄 画像リサイズ開始")
+        w = self.sdxl_cfg.get('width')
+        h = self.sdxl_cfg.get('height')
+        img = Image.open(image_path).convert("RGB")
+        img = img.resize((w, h), Image.LANCZOS)
 
-        resized_path = os.path.join(self.temp_dir, "resized_sdxl_input.png")
-        img.save(resized_path, "PNG",
-                 optimize=True,
-                 quality=self.input_images_config.get('resize_quality', 95))
-        size = os.path.getsize(resized_path)
-        self.logger.print_success(f"SDXL画像リサイズ完了: {size} bytes")
-        return resized_path
+        out = os.path.join(self.temp_dir, "resized_sdxl_input.png")
+        img.save(out, "PNG", optimize=True, quality=self.input_cfg.get('resize_quality', 95))
+        size = os.path.getsize(out)
+        self.logger.print_success(f"✅ リサイズ完了: {size} bytes")
+        return out
 
-    def encode_image_to_base64(self, image_path: str) -> str | None:
-        """
-        画像を Base64 エンコード
-        Returns: Base64 文字列 or None
-        """
-        if self.pose_mode == "specification" or image_path is None:
+    def encode_image_to_base64(self, image_path: str) -> str:
+        """画像を Base64 エンコード"""
+        if self.pose_mode == "specification" or not image_path:
             return None
         with open(image_path, 'rb') as f:
             data = f.read()
         b64 = base64.b64encode(data).decode('utf-8')
-        self.logger.print_status(f"Base64エンコードサイズ: {len(b64)} 文字")
+        self.logger.print_status(f"🔄 Base64 エンコード: {len(b64)} 文字")
         return b64
 
     def apply_final_enhancement(self, image_path: str):
         """
-        最終仕上げ処理（ImageMagick or PIL）
+        最終仕上げ処理  
+        - ImageMagick があればシェルコマンドで
+        - なければ PIL でアンシャープマスク・コントラスト・彩度調整
         """
-        self.logger.print_status("最終仕上げ処理中（顔品質特化）...")
+        self.logger.print_status("✨ 最終仕上げ処理開始")
+        # ImageMagick が使えるか
         if shutil.which('convert'):
             try:
                 cmd = [
-                    'convert', image_path,
-                    '-unsharp', '1.2x1.0+1.0+0.02',
-                    '-contrast-stretch', '0.03%x0.03%',
-                    '-modulate', '102,110,100',
-                    '-define', 'png:compression-level=0',
+                    "convert", image_path,
+                    "-unsharp", "1.2x1.0+1.0+0.02",
+                    "-contrast-stretch", "0.03%x0.03%",
+                    "-modulate", "102,110,100",
+                    "-define", "png:compression-level=0",
                     image_path
                 ]
                 res = subprocess.run(cmd, capture_output=True, timeout=30, text=True)
                 if res.returncode == 0:
-                    self.logger.print_success("✅ ImageMagick最終仕上げ処理完了")
+                    self.logger.print_success("✅ ImageMagick 仕上げ完了")
                     return
                 else:
-                    self.logger.print_warning(f"⚠️ ImageMagick処理エラー: {res.stderr}")
+                    self.logger.print_warning(f"⚠️ ImageMagick エラー: {res.stderr}")
             except Exception as e:
-                self.logger.print_warning(f"⚠️ ImageMagick処理エラー: {e}")
+                self.logger.print_warning(f"⚠️ ImageMagick 例外: {e}")
 
         # PIL 代替処理
-        self.apply_pil_enhancement(image_path)
+        self._apply_pil(image_path)
 
-    def apply_pil_enhancement(self, image_path: str):
-        """
-        PIL 代替仕上げ処理
-        """
+    def _apply_pil(self, image_path: str):
+        """PIL 仕上げ処理"""
         try:
-            img = Image.open(image_path)
+            img = Image.open(image_path).convert("RGB")
             # アンシャープマスク
             img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=100, threshold=1))
             # コントラスト
-            enhancer = ImageEnhance.Contrast(img)
-            img = enhancer.enhance(1.05)
-            # 色彩調整
-            brightness = ImageEnhance.Brightness(img)
-            img = brightness.enhance(1.02)
-            color = ImageEnhance.Color(img)
-            img = color.enhance(1.10)
+            img = ImageEnhance.Contrast(img).enhance(1.05)
+            # 彩度・明度調整
+            img = ImageEnhance.Brightness(img).enhance(1.02)
+            img = ImageEnhance.Color(img).enhance(1.10)
+            # 保存
             img.save(image_path, "PNG", optimize=True, compress_level=0)
-            self.logger.print_success("✅ PIL代替仕上げ処理完了")
+            self.logger.print_success("✅ PIL 仕上げ完了")
         except Exception as e:
-            self.logger.print_error(f"❌ PIL仕上げ処理エラー: {e}")
+            self.logger.print_error(f"❌ PIL 仕上げエラー: {e}")
