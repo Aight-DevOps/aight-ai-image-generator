@@ -29,13 +29,13 @@ class ImageSaver:
         self.temp_dir = temp_dir
         self.local_mode = local_mode
 
-    def save_image_locally(self, image_path: str, index: int, response: dict, gen_type, input_path: str):
+    def save_image_locally(self, image_path: str, index: int, response: dict, gen_type, input_path: str, pose_mode: str = None):
         """ローカル保存処理（メタデータ強化版）"""
         now = datetime.now(JST).strftime("%Y%m%d%H%M%S")
         fast = "_fast" if getattr(gen_type, 'fast_mode', False) else ""
         ultra = "_ultra_safe" if getattr(gen_type, 'ultra_safe_mode', False) else ""
         bedrock = "_bedrock" if getattr(gen_type, 'bedrock_enabled', False) else ""
-        pose = f"_{getattr(gen_type, 'pose_mode', 'detection')}" if hasattr(gen_type, 'pose_mode') else ""
+        pose = f"_{pose_mode}" if pose_mode else ""
         model = getattr(gen_type, 'model_name', 'unknown').replace('.safetensors','').replace(' ', '_')
         image_id = f"local_sdxl_{gen_type.name}_{model}{fast}{ultra}{bedrock}{pose}_{now}_{index:03d}"
 
@@ -50,7 +50,7 @@ class ImageSaver:
 
         # 強化されたメタデータ
         params = response.get('parameters', {})
-        
+
         # generation_mode の決定
         generation_mode = 'sdxl_unified'
         if getattr(gen_type, 'fast_mode', False):
@@ -59,7 +59,7 @@ class ImageSaver:
             generation_mode = 'bedrock'
         elif getattr(gen_type, 'ultra_safe_mode', False):
             generation_mode = 'ultra_safe'
-        
+
         metadata = {
             # 必須フィールド
             "image_id": image_id,
@@ -67,14 +67,14 @@ class ImageSaver:
             "generation_mode": generation_mode,
             "created_at": now,
             "model_name": getattr(gen_type, 'model_name', 'unknown'),
-            
+
             # 詳細フィールド
-            "input_image": os.path.basename(input_path) if input_path else None,
-            "pose_mode": getattr(gen_type, 'pose_mode', 'detection'),
+            "input_image": input_path if input_path else "pose_specification_mode",
+            "pose_mode": pose_mode or "detection",
             "fast_mode_enabled": getattr(gen_type, 'fast_mode', False),
             "bedrock_enabled": getattr(gen_type, 'bedrock_enabled', False),
             "ultra_memory_safe_enabled": getattr(gen_type, 'ultra_safe_mode', False),
-            
+
             # SDXL統合生成パラメータ
             "sdxl_unified_generation": {
                 "prompt": params.get('prompt', ''),
@@ -85,27 +85,26 @@ class ImageSaver:
                 "height": self.config.get('sdxl_generation', {}).get('height', 1024),
                 "sampler_name": self.config.get('sdxl_generation', {}).get('sampler_name', 'DPM++ 2M Karras')
             },
-            
+
             # Register用フィールド
             "s3Key": f"image-pool/{gen_type.name}/{image_id}.png",
             "imageState": "unprocessed",
             "postingStage": "notposted"
         }
-        
+
         meta_path = os.path.join(out_dir, f"{image_id}_metadata.json")
         with open(meta_path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
         self.logger.print_status(f"📄 メタデータ保存: {meta_path}")
         return True
 
-    def save_image_to_s3_and_dynamodb(self, image_path: str, index: int, response: dict, gen_type, input_path: str):
+    def save_image_to_s3_and_dynamodb(self, image_path: str, index: int, response: dict, gen_type, input_path: str, pose_mode: str = None):
         """S3 と DynamoDB 保存処理"""
-        # メタデータ準備
         now = datetime.now(JST).strftime("%Y%m%d%H%M%S")
-        fast = "_fast" if gen_type.fast_mode else ""
+        fast = "_fast" if getattr(gen_type, 'fast_mode', False) else ""
         ultra = "_ultra_safe"
         bedrock = "_bedrock" if getattr(gen_type, 'bedrock_enabled', False) else ""
-        pose = f"_{gen_type.pose_mode}" if getattr(gen_type, 'pose_mode', None) else ""
+        pose = f"_{pose_mode}" if pose_mode else ""
         image_id = f"sdxl_{gen_type.name}_{now}_{index:03d}{fast}{ultra}{bedrock}{pose}"
         s3_key = f"image-pool/{gen_type.name}/{image_id}.png"
 
@@ -128,9 +127,9 @@ class ImageSaver:
         params = response.get('parameters', {})
         base = {
             "generation_method": "sdxl_unified",
-            "input_image": os.path.basename(input_path) if input_path else None,
-            "pose_mode": getattr(gen_type, 'pose_mode', None),
-            "fast_mode_enabled": gen_type.fast_mode
+            "input_image": input_path if input_path else "pose_specification_mode",
+            "pose_mode": pose_mode or "detection",
+            "fast_mode_enabled": getattr(gen_type, 'fast_mode', False)
         }
         sdxl = {
             "prompt": params.get('prompt', ''),
@@ -143,17 +142,22 @@ class ImageSaver:
             "model": gen_type.model_name
         }
         control = {
-            "enabled": gest[self.pose_mode]=="detection",
-            "openpose": {"enabled": str(self.config['controlnet']['openpose']['enabled']),
-                         "weight": str(self.config['controlnet']['openpose']['weight'])},
-            "depth":   {"enabled": str(self.config['controlnet']['depth']['enabled']),
-                        "weight": str(self.config['controlnet']['depth']['weight'])}
+            "enabled": pose_mode == "detection" if pose_mode else False,
+            "openpose": {
+                "enabled": str(self.config['controlnet']['openpose']['enabled']),
+                "weight": str(self.config['controlnet']['openpose']['weight'])
+            },
+            "depth": {
+                "enabled": str(self.config['controlnet']['depth']['enabled']),
+                "weight": str(self.config['controlnet']['depth']['weight'])
+            }
         }
         adetail = {
             "enabled": str(self.config['adetailer']['enabled']),
             "model": self.config['adetailer']['model'],
             "denoising_strength": str(self.config['adetailer']['denoising_strength'])
         }
+
         metadata_item = {
             "imageId": image_id,
             "s3Bucket": self.config['aws']['s3_bucket'],
@@ -163,7 +167,7 @@ class ImageSaver:
             "postingStage": "notposted",
             "createdAt": now,
             "suitableTimeSlots": self.config.get('default_suitable_slots', []),
-            "preGeneratedComments": {},  # Bedrock 省略可
+            "preGeneratedComments": {},
             "commentGeneratedAt": "",
             "sdParams": {
                 "base": base,

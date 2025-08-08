@@ -188,12 +188,26 @@ class HybridBijoImageGeneratorV7:
                 source_dir, formats,
                 history_file=os.path.join(self.temp_dir,'image_history.json')
             )
-            
+        
+        # ポーズモード表示の改善
+        self.logger.print_status(f"🎯 現在のポーズモード: {self.pose_manager.pose_mode}")
+        
         try:
             input_path = self.input_pool.get_next_image()
         except FileNotFoundError:
             self.logger.print_warning("⚠️ 入力画像がないため、プロンプトのみで生成します")
             input_path = None
+
+        # ポーズモード別のログ表示
+        if self.pose_manager.pose_mode == "detection":
+            if input_path:
+                self.logger.print_status(f"📸 入力画像（ポーズ検出モード用）: {input_path}")
+            else:
+                self.logger.print_warning("⚠️ ポーズ検出モード選択中ですが入力画像がありません")
+        else:  # specification mode
+            self.logger.print_status("🎯 ポーズ指定モード: プロンプトベースで生成")
+            if input_path:
+                self.logger.print_status("💡 入力画像は存在しますがポーズ指定モードのため使用されません")
 
         # 前処理
         proc = ImageProcessor(self.config, self.temp_dir, self.pose_manager.pose_mode)
@@ -220,11 +234,11 @@ class HybridBijoImageGeneratorV7:
 
         # 保存
         saver = ImageSaver(self.config, self.aws, self.temp_dir,
-                           local_mode=self.config.get('local_execution', {}).get('enabled', True))
+                          local_mode=self.config.get('local_execution', {}).get('enabled', True))
         
         if self.config.get('local_execution', {}).get('enabled', True):
-            saver.save_image_locally(img_path, index, resp, gen_type, input_path)
+            saver.save_image_locally(img_path, index, resp, gen_type, input_path, self.pose_manager.pose_mode)
         else:
-            saver.save_image_to_s3_and_dynamodb(img_path, index, resp, gen_type, input_path)
-
+            saver.save_image_to_s3_and_dynamodb(img_path, index, resp, gen_type, input_path, self.pose_manager.pose_mode)
+            
         return img_path, resp
