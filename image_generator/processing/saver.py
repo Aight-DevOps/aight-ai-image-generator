@@ -38,7 +38,7 @@ class ImageSaver:
         bedrock = "_bedrock" if gen_type.bedrock_enabled else ""
         pose = f"_{pose_mode}"
         model = gen_type.model_name.replace('.safetensors','').replace(' ', '_')
-        image_id = f"local_sdxl_{gen_type.name}_{model}{fast}{ultra}{bedrock}{pose}_{now}_{index:03d}"
+        image_id = f"local_sdxl_{gen_type.name}_{now}_{index:03d}"
 
         out_dir = self.config['local_execution']['output_directory']
         if self.config['local_execution']['create_subdirs']:
