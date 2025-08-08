@@ -2,32 +2,36 @@
 # -*- coding: utf-8 -*-
 
 """
-DynamoDBUploader - DynamoDB登録機能
-- register_to_dynamodb: アイテム登録
+DynamoDBUploader - DynamoDB登録機能（完全版）
 """
 
-from common.logger import ColorLogger
 from botocore.exceptions import ClientError
+from common.logger import ColorLogger
 
 class DynamoDBUploader:
-    """DynamoDB 登録管理クラス"""
-
-    def __init__(self, table, logger):
-        self.table = table
+    """DynamoDBアップローダー（完全版）"""
+    
+    def __init__(self, dynamodb_table, logger):
+        self.dynamodb_table = dynamodb_table
         self.logger = logger
-
-    def register_to_dynamodb(self, item):
-        """DynamoDB put_item"""
+    
+    def register_to_dynamodb(self, aws_metadata) -> bool:
+        """DynamoDB登録（完全版）"""
+        image_id = aws_metadata['imageId']
+        
         try:
-            self.logger.print_status(f"📝 DynamoDB登録: {item['imageId']}")
-            # 重複チェック
-            resp = self.table.get_item(Key={'imageId':item['imageId']})
-            if 'Item' in resp:
-                self.logger.print_warning("既存、スキップ")
-                return False
-            self.table.put_item(Item=item)
-            self.logger.print_success("✅ DynamoDB登録完了")
+            self.logger.print_status(f"📝 DynamoDB登録中: {image_id}")
+            
+            # DynamoDB登録（boto3のResourceを使用）
+            self.dynamodb_table.put_item(Item=aws_metadata)
+            self.logger.print_success(f"✅ DynamoDB登録完了: {image_id}")
+
             return True
+
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            self.logger.print_error(f"❌ DynamoDB登録エラー ({image_id}): {error_code}")
+            return False
         except Exception as e:
-            self.logger.print_error(f"DynamoDB登録エラー: {e}")
+            self.logger.print_error(f"❌ DynamoDB登録エラー ({image_id}): {e}")
             return False

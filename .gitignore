@@ -6,3 +6,4 @@ common/**/*.pyc
 image_generator/**/*.pyc
 image_register/**/*.pyc
 image_reviewer/**/*.pyc
+config/config.*yaml

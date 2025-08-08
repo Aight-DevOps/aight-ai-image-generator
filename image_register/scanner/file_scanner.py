@@ -2,87 +2,79 @@
 # -*- coding: utf-8 -*-
 
 """
-FileScanner - ファイルスキャン・ペア管理
+FileScanner - ファイルスキャン・ペア管理（強化版）
+リファクタリング前の完全機能を再現
 """
 
 import os
 import json
-import shutil
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict, Any
 from common.logger import ColorLogger
 
 class FileScanner:
-    """ディレクトリスキャン・ペア管理クラス"""
+    """ディレクトリスキャン・ペア管理クラス（完全版）"""
     
     def __init__(self, logger: ColorLogger):
         self.logger = logger
-    
-    def scan_directory_for_pairs(self, directory: str) -> List[Tuple[str, str]]:
-        """ディレクトリ内の画像・メタデータペアを検出"""
-        self.logger.print_status(f"📁 ディレクトリスキャン: {directory}")
         
-        if not os.path.exists(directory):
-            self.logger.print_error(f"❌ ディレクトリなし: {directory}")
+    def scan_directory_for_pairs(self, directory_path: str) -> List[Tuple[str, str]]:
+        """ディレクトリから画像+JSONペアをスキャン（完全版）"""
+        self.logger.print_status(f"📁 ディレクトリスキャン: {directory_path}")
+        
+        if not os.path.exists(directory_path):
+            self.logger.print_error(f"❌ ディレクトリが存在しません: {directory_path}")
             return []
         
         pairs = []
-        for file_path in Path(directory).iterdir():
-            if file_path.suffix.lower() in ['.png', '.jpg', '.jpeg']:
-                # 対応するメタデータファイルを探す
-                meta_candidates = [
-                    file_path.with_suffix('.json'),
-                    file_path.parent / f"{file_path.stem}_metadata.json"
-                ]
-                
-                for meta_path in meta_candidates:
-                    if meta_path.exists():
-                        self.logger.print_status(f"ペア検出: {file_path.name}, {meta_path.name}")
-                        pairs.append((str(file_path), str(meta_path)))
-                        break
+        supported_formats = ['png', 'jpg', 'jpeg']
         
-        self.logger.print_success(f"✅ {len(pairs)} ペア検出")
+        for ext in supported_formats:
+            for image_path in Path(directory_path).glob(f"*.{ext}"):
+                # 修正：_metadata.json形式に対応
+                base_name = image_path.stem  # 拡張子なしのファイル名
+                metadata_path = image_path.parent / f"{base_name}_metadata.json"
+                
+                if metadata_path.exists():
+                    pairs.append((str(image_path), str(metadata_path)))
+                    self.logger.print_status(f"🔍 ペア検出: {image_path.name} + {metadata_path.name}")
+        
+        self.logger.print_success(f"✅ {len(pairs)}ペアの画像+JSONファイルを検出")
         return pairs
-    
+
     def load_and_validate_metadata(self, metadata_path: str) -> Optional[Dict[str, Any]]:
-        """メタデータ読み込み・バリデーション（改良版）"""
+        """メタデータ読み込み・検証（完全版）"""
         try:
             with open(metadata_path, 'r', encoding='utf-8') as f:
                 metadata = json.load(f)
             
-            # 必須フィールドの確認と補完
-            required_fields = {
-                'image_id': metadata.get('image_id'),
-                'genre': metadata.get('genre'),
-                'generation_mode': metadata.get('generation_mode') or self._infer_generation_mode(metadata),
-                'created_at': metadata.get('created_at'),
-                'model_name': metadata.get('model_name')
-            }
-            
+            # 必須フィールドチェック
+            required_fields = ['image_id', 'genre', 'generation_mode']
             missing_fields = []
-            for field, value in required_fields.items():
-                if not value:
+            
+            for field in required_fields:
+                if field not in metadata or not metadata[field]:
                     missing_fields.append(field)
             
             if missing_fields:
-                self.logger.print_warning(f"⚠️ 不足フィールド検出: {missing_fields}")
+                self.logger.print_warning(f"⚠️ 不足フィールド: {missing_fields}")
                 
-                # 補完可能なフィールドを自動補完
+                # 自動補完を試行
                 if 'generation_mode' in missing_fields:
-                    generation_mode = self._infer_generation_mode(metadata)
-                    if generation_mode:
-                        metadata['generation_mode'] = generation_mode
+                    inferred_mode = self._infer_generation_mode(metadata)
+                    if inferred_mode:
+                        metadata['generation_mode'] = inferred_mode
                         missing_fields.remove('generation_mode')
-                        self.logger.print_status(f"🔧 generation_mode を自動補完: {generation_mode}")
+                        self.logger.print_status(f"🔧 generation_mode 自動補完: {inferred_mode}")
                 
                 if 'genre' in missing_fields:
-                    genre = self._infer_genre_from_filename(metadata_path)
-                    if genre:
-                        metadata['genre'] = genre
+                    inferred_genre = self._infer_genre_from_path(metadata_path)
+                    if inferred_genre:
+                        metadata['genre'] = inferred_genre
                         missing_fields.remove('genre')
-                        self.logger.print_status(f"🔧 genre を自動補完: {genre}")
+                        self.logger.print_status(f"🔧 genre 自動補完: {inferred_genre}")
                 
-                # まだ不足しているフィールドがあればエラー
+                # まだ不足がある場合はエラー
                 if missing_fields:
                     self.logger.print_error(f"❌ 補完不可能な欠損フィールド: {', '.join(missing_fields)}")
                     return None
@@ -90,9 +82,9 @@ class FileScanner:
             return metadata
             
         except Exception as e:
-            self.logger.print_error(f"❌ メタデータ読み込みエラー: {e}")
+            self.logger.print_error(f"❌ メタデータ読み込みエラー {metadata_path}: {e}")
             return None
-    
+
     def _infer_generation_mode(self, metadata: Dict[str, Any]) -> Optional[str]:
         """メタデータから生成モードを推論"""
         # SDXL統合生成の場合
@@ -117,30 +109,25 @@ class FileScanner:
             return f'pose_{pose_mode}'
         
         # デフォルト
-        return 'standard'
-    
-    def _infer_genre_from_filename(self, metadata_path: str) -> Optional[str]:
-        """ファイル名からジャンルを推論"""
-        filename = os.path.basename(metadata_path)
+        return 'sdxl_unified'
+
+    def _infer_genre_from_path(self, metadata_path: str) -> Optional[str]:
+        """ファイルパスからジャンルを推論"""
+        path_str = metadata_path.lower()
         
-        # 一般的なジャンル名をファイル名から抽出
+        # ディレクトリ名またはファイル名からジャンルを特定
         genres = ['gyal_erotic', 'gyal_black', 'gyal_natural', 'normal', 'seiso', 'teen']
         for genre in genres:
-            if genre in filename.lower():
+            if genre in path_str:
                 return genre
         
         return None
-    
+
     def cleanup_local_files(self, image_path: str, metadata_path: str):
-        """ローカルファイルの削除"""
+        """ローカルファイル削除"""
         try:
-            if os.path.exists(image_path):
-                os.remove(image_path)
-                self.logger.print_status(f"🗑️ 画像削除: {os.path.basename(image_path)}")
-            
-            if os.path.exists(metadata_path):
-                os.remove(metadata_path)
-                self.logger.print_status(f"🗑️ メタデータ削除: {os.path.basename(metadata_path)}")
-                
+            os.remove(image_path)
+            os.remove(metadata_path)
+            self.logger.print_status(f"🗑️ ローカルファイル削除完了: {os.path.basename(image_path)}")
         except Exception as e:
-            self.logger.print_error(f"❌ ファイル削除エラー: {e}")
+            self.logger.print_warning(f"⚠️ ローカルファイル削除エラー: {e}")
