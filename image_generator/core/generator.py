@@ -3,8 +3,6 @@
 
 """
 Hybrid Bijo Image Generator v7.0 - コア画像生成クラス
-- SDXL統合プロンプト対応版 + モデル切り替え機能
-- 元 reference リポジトリの hybrid_bijo_generator_v10.py から機能を完全移植
 """
 
 import os
@@ -18,13 +16,13 @@ import yaml
 import torch
 import gc
 import urllib3
-
 from io import BytesIO
 from pathlib import Path
 from collections import deque, Counter
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 from PIL import Image, ImageFilter, ImageEnhance
+from typing import TYPE_CHECKING
 
 from common.logger import ColorLogger
 from common.timer import ProcessTimer
@@ -32,6 +30,7 @@ from common.types import GenerationType, HybridGenerationError
 from common.config_manager import ConfigManager
 from common.aws_client import AWSClientManager
 
+# 相対インポートの修正
 from ..prompt.builder import PromptBuilder
 from ..prompt.lora_manager import LoRAManager
 from ..prompt.pose_manager import PoseManager
@@ -44,6 +43,9 @@ from ..processing.saver import ImageSaver
 from ..memory.manager import MemoryManager
 from ..aws.bedrock import BedrockManager
 from ..aws.metadata import MetadataManager
+
+if TYPE_CHECKING:
+    from .model_manager import ModelManager
 
 # SSL 警告無視
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -59,50 +61,79 @@ class HybridBijoImageGeneratorV7:
 
         # 設定読み込み
         cfg_mgr = ConfigManager(self.logger)
-        self.config = cfg_mgr.load_config(['config_v10.yaml'])
+        self.config = cfg_mgr.load_config(['config/config_v10.yaml'])
 
         # AWS クライアント初期化
-        self.aws = AWSClientManager(self.logger, self.config)
-        self.aws.setup_clients(include_lambda=True)
+        try:
+            self.aws = AWSClientManager(self.logger, self.config)
+            self.aws.setup_clients(include_lambda=True)
+        except Exception as e:
+            self.logger.print_warning(f"⚠️ AWS初期化スキップ: {e}")
+            self.aws = None
 
         # メモリ管理
         self.memory_manager = MemoryManager(self.config)
 
         # プロンプト関連設定読み込み
-        prompts_data = cfg_mgr.load_yaml(self.config['prompt_files']['prompts'])
-        random_data = cfg_mgr.load_yaml(self.config['prompt_files']['random_elements'])
-        gen_types_data = cfg_mgr.load_yaml(self.config['prompt_files']['generation_types'])
+        try:
+            prompts_data = cfg_mgr.load_yaml(self.config['prompt_files']['prompts'])
+            random_data = cfg_mgr.load_yaml(self.config['prompt_files']['random_elements'])
+            gen_types_data = cfg_mgr.load_yaml(self.config['prompt_files']['generation_types'])
+        except Exception as e:
+            self.logger.print_error(f"❌ 設定ファイル読み込みエラー: {e}")
+            # デフォルト値で続行
+            prompts_data = {}
+            random_data = {}
+            gen_types_data = {'generation_types': []}
 
         # 生成タイプ設定
         self.generation_types = []
-        for t in gen_types_data['generation_types']:
+        for t in gen_types_data.get('generation_types', []):
             # teen/jk の年齢補正
-            if t['name'] in ['teen', 'jk']:
+            if t.get('name') in ['teen', 'jk']:
                 t['age_range'] = [18, 20]
             gt = GenerationType(
-                name=t['name'],
-                model_name=t['model_name'],
-                prompt=t['prompt'],
-                negative_prompt=t['negative_prompt'],
+                name=t.get('name', 'default'),
+                model_name=t.get('model_name', 'default.safetensors'),
+                prompt=t.get('prompt', ''),
+                negative_prompt=t.get('negative_prompt', ''),
                 random_elements=t.get('random_elements', []),
                 age_range=t.get('age_range', [18,24]),
                 lora_settings=t.get('lora_settings', [])
             )
+
+            gt.fast_mode = self.config.get('fast_mode', {}).get('enabled', False)
+            gt.bedrock_enabled = self.config.get('bedrock_features', {}).get('enabled', False)
+            gt.ultra_safe_mode = self.config.get('memory_management', {}).get('enabled', False)
+            
             self.generation_types.append(gt)
+
+        if not self.generation_types:
+            # デフォルト生成タイプを追加
+            default_gt = GenerationType(
+                name='default',
+                model_name='default.safetensors',
+                prompt='beautiful Japanese woman',
+                negative_prompt='low quality',
+                random_elements=[],
+                age_range=[18, 24],
+                lora_settings=[]
+            )
+            self.generation_types.append(default_gt)
 
         # 各種マネージャ初期化
         self.prompt_builder = PromptBuilder(self.config, prompts_data, gen_types_data)
-        self.lora_manager   = LoRAManager()
-        self.pose_manager   = PoseManager(random_data.get('specific_random_elements', {}))
-        self.secure_random  = SecureRandom()
-        self.enhanced_random= EnhancedSecureRandom()
+        self.lora_manager = LoRAManager()
+        self.pose_manager = PoseManager(random_data.get('specific_random_elements', {}))
+        self.secure_random = SecureRandom()
+        self.enhanced_random = EnhancedSecureRandom()
 
         # 入力プール & 要素
         self.input_pool = None
         self.elem_generator = None
 
         # 一時ディレクトリ
-        self.temp_dir = self.config['temp_files']['directory']
+        self.temp_dir = self.config.get('temp_files', {}).get('directory', '/tmp/sdprocess')
         os.makedirs(self.temp_dir, exist_ok=True)
 
         self.logger.print_success("✅ 初期化完了")
@@ -116,8 +147,8 @@ class HybridBijoImageGeneratorV7:
         overall_timer.start(f"SDXL統合画像生成バッチ（{count}枚）")
 
         # モデル確保
-        from .model_manager import ModelManager
         try:
+            from .model_manager import ModelManager
             ModelManager(self.config).ensure_model_for_generation_type(gen_type)
         except HybridGenerationError as e:
             self.logger.print_error(f"❌ モデル切替失敗: {e}")
@@ -144,15 +175,35 @@ class HybridBijoImageGeneratorV7:
         """単発生成ワークフロー"""
         # 入力画像選択 & プロンプト構築
         if not self.input_pool:
-            cfg = self.config['input_images']
-            self.input_pool = InputImagePool(cfg['source_directory'], cfg['supported_formats'],
-                                            history_file=os.path.join(self.temp_dir,'image_history.json'))
-        input_path = self.input_pool.get_next_image()
+            cfg = self.config.get('input_images', {})
+            source_dir = cfg.get('source_directory', '/tmp/input')
+            formats = cfg.get('supported_formats', ['jpg', 'jpeg', 'png'])
+            
+            # ディレクトリが存在しない場合は作成
+            if not os.path.exists(source_dir):
+                os.makedirs(source_dir, exist_ok=True)
+                self.logger.print_warning(f"⚠️ 入力ディレクトリを作成しました: {source_dir}")
+            
+            self.input_pool = InputImagePool(
+                source_dir, formats,
+                history_file=os.path.join(self.temp_dir,'image_history.json')
+            )
+            
+        try:
+            input_path = self.input_pool.get_next_image()
+        except FileNotFoundError:
+            self.logger.print_warning("⚠️ 入力画像がないため、プロンプトのみで生成します")
+            input_path = None
 
         # 前処理
         proc = ImageProcessor(self.config, self.temp_dir, self.pose_manager.pose_mode)
-        resized = proc.preprocess_input_image(input_path)
-        b64 = proc.encode_image_to_base64(resized)
+        
+        if input_path:
+            resized = proc.preprocess_input_image(input_path)
+            b64 = proc.encode_image_to_base64(resized)
+        else:
+            resized = None
+            b64 = None
 
         # プロンプト
         prompt, neg, ad_neg = self.prompt_builder.build_prompts(gen_type, mode="auto")
@@ -164,30 +215,16 @@ class HybridBijoImageGeneratorV7:
         img_path, resp = engine.execute_generation(prompt, neg, ad_neg, input_b64=b64)
 
         # 仕上げ処理
-        proc.apply_final_enhancement(img_path)
+        if img_path and os.path.exists(img_path):
+            proc.apply_final_enhancement(img_path)
 
         # 保存
         saver = ImageSaver(self.config, self.aws, self.temp_dir,
-                           local_mode=self.config['local_execution']['enabled'])
-        if self.config['local_execution']['enabled']:
+                           local_mode=self.config.get('local_execution', {}).get('enabled', True))
+        
+        if self.config.get('local_execution', {}).get('enabled', True):
             saver.save_image_locally(img_path, index, resp, gen_type, input_path)
         else:
             saver.save_image_to_s3_and_dynamodb(img_path, index, resp, gen_type, input_path)
 
         return img_path, resp
-
-if __name__ == "__main__":
-    import sys
-    from .batch.processor import BatchProcessor
-
-    logger = ColorLogger()
-    logger.print_stage("🚀 ツール起動")
-
-    gen = HybridBijoImageGeneratorV7()
-    batcher = BatchProcessor(gen, gen.config)
-    if len(sys.argv) >= 3 and sys.argv[1] == 'batch':
-        genre = sys.argv[2]
-        count = int(sys.argv[3]) if len(sys.argv)>=4 else 1
-        batcher.generate_hybrid_image(next(gt for gt in gen.generation_types if gt.name==genre), count)
-    else:
-        logger.print_status("使用方法: python main.py batch <genre> [count]")

@@ -88,3 +88,8 @@ class AWSClientManager:
             return "❌ AWS認証情報が設定されていません"
         except Exception as e:
             return f"❌ AWS接続エラー: {e}"
+
+    def setup_register_clients(self):
+        """Register用クライアント設定"""
+        self.setup_clients(include_lambda=False)
+        self.logger.print_success("✅ Register用AWS クライアント初期化完了")

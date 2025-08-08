@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-RandomElementGenerator - ランダム要素生成（バリエーション重視・永続化対応）
+RandomElementGenerator - ランダム要素生成
 """
 
 import os
 import json
-from collections import deque, Counter
 from datetime import datetime, timezone, timedelta
+from typing import Dict, Any, Optional
 from .secure_random import EnhancedSecureRandom
 
 # JST タイムゾーン
@@ -17,7 +17,7 @@ JST = timezone(timedelta(hours=9))
 class RandomElementGenerator:
     """ランダム要素生成（バリエーション重視・永続化対応）"""
     
-    def __init__(self, specific_elements: dict, general_elements: dict, history_file: str = None):
+    def __init__(self, specific_elements: Dict[str, Any], general_elements: Dict[str, Any], history_file: Optional[str] = None):
         self.specific_elements = specific_elements
         self.general_elements = general_elements
         self.history_file = history_file
@@ -37,12 +37,14 @@ class RandomElementGenerator:
                 # 履歴データの復元
                 for category, history_list in data.get('histories', {}).items():
                     if category not in self.enhanced_random.histories:
+                        from collections import deque
                         self.enhanced_random.histories[category] = deque(maxlen=5)
                     self.enhanced_random.histories[category].extend(history_list)
                 
                 # カウンターデータの復元
                 for category, counter_dict in data.get('counters', {}).items():
                     if category not in self.enhanced_random.counters:
+                        from collections import Counter
                         self.enhanced_random.counters[category] = Counter()
                     self.enhanced_random.counters[category].update(counter_dict)
                 
@@ -70,7 +72,7 @@ class RandomElementGenerator:
         """改良版ランダム要素生成（永続化対応・ポーズ検出モード対応）"""
         additional_prompt = ""
         
-        # --- 特定ランダム要素（重複回避・履歴継承） --- #
+        # 特定ランダム要素（重複回避・履歴継承）
         for element_type in gen_type.random_elements:
             if element_type not in self.specific_elements:
                 continue
@@ -81,8 +83,8 @@ class RandomElementGenerator:
             
             # ポーズカテゴリは常にスキップ（重複回避のため修正）
             if element_type == "poses":
-                continue  # ← ここを修正：モードに関係なく常にスキップ
-
+                continue
+            
             # ヘアスタイル専用処理（既存のまま維持）
             if element_type == "hairstyles":
                 if isinstance(elements_options, list):
@@ -121,13 +123,11 @@ class RandomElementGenerator:
                     )
                     additional_prompt += f", {sel}"
         
-        # general_random_elementsの処理は削除（全てspecific_random_elementsに移動するため）
-        
-        # --- 履歴保存 --- #
+        # 履歴保存
         self._save_history()
         
         return additional_prompt
-
-    def get_usage_stats(self) -> dict:
+    
+    def get_usage_stats(self) -> Dict[str, Any]:
         """使用統計の取得"""
         return self.enhanced_random.get_usage_stats()

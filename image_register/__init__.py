@@ -6,20 +6,12 @@ Image Register module for Aight AI Image Generator
 画像登録ツールモジュール
 """
 
-from .core.register import HybridBijoRegisterV9
-from .scanner.file_scanner import FileScanner
-from .converter.metadata_converter import MetadataConverter
-from .converter.type_converter import TypeConverter
-from .uploader.s3_uploader import S3Uploader
-from .uploader.dynamodb_uploader import DynamoDBUploader
-from .processor.batch_processor import BatchProcessor
+# 循環インポートを避けるため、必要最小限のインポートに留める
+__version__ = "1.0"
 
-__all__ = [
-    'HybridBijoRegisterV9',
-    'FileScanner',
-    'MetadataConverter',
-    'TypeConverter',
-    'S3Uploader',
-    'DynamoDBUploader',
-    'BatchProcessor'
-]
+def get_register():
+    """遅延インポートでレジスターを取得"""
+    from .core.register import HybridBijoRegisterV9
+    return HybridBijoRegisterV9
+
+__all__ = ["get_register"]

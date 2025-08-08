@@ -1,0 +1,8 @@
+# bin フォルダは要らない
+.git/
+.venv/
+output/
+common/**/*.pyc
+image_generator/**/*.pyc
+image_register/**/*.pyc
+image_reviewer/**/*.pyc

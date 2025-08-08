@@ -3,20 +3,21 @@
 
 """
 BatchProcessor - 画像生成バッチ処理
-- generate_hybrid_image: 単体生成
-- generate_hybrid_batch: 指定ジャンルバッチ生成
-- generate_daily_hybrid_batch: 日次バッチ生成
 """
 
 import time
+from typing import TYPE_CHECKING
 from common.logger import ColorLogger
 from common.timer import ProcessTimer
 from common.types import HybridGenerationError
 
+if TYPE_CHECKING:
+    from ..core.generator import HybridBijoImageGeneratorV7
+
 class BatchProcessor:
     """バッチ処理管理クラス"""
 
-    def __init__(self, generator, config: dict, logger=None):
+    def __init__(self, generator: 'HybridBijoImageGeneratorV7', config: dict, logger=None):
         """
         Args:
             generator: HybridBijoImageGeneratorV7 インスタンス
@@ -74,7 +75,7 @@ class BatchProcessor:
         """
         日次バッチ生成
         """
-        if self.generator.local_mode:
+        if self.config.get('local_execution', {}).get('enabled', False):
             self.logger.print_warning("⚠️ ローカルモードでは日次バッチ非推奨")
             if input("続行しますか？ (y/N): ").lower()!='y':
                 self.logger.print_status("キャンセル")
@@ -97,9 +98,8 @@ class BatchProcessor:
             self.logger.print_status(f"{genre}: {num} 枚生成予定")
             self.generate_hybrid_batch(genre, num)
 
-            if idx < len(genres)-1 and self.generator.memory_manager.enabled:
+            if idx < len(genres)-1:
                 self.logger.print_status("🧹 ジャンル間メモリクリーンアップ")
-                self.generator.memory_manager.perform_aggressive_memory_cleanup()
                 time.sleep(60)
 
         overall.end_and_report()

@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-InputImagePool - 入力画像プール管理（重複回避・均等分散・毎回スキャン対応）
+InputImagePool - 入力画像プール管理
 """
 
 import os
 import json
 import secrets
-from pathlib import Path
 from collections import Counter
+from typing import List, Optional
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
 # JST タイムゾーン
@@ -18,7 +19,7 @@ JST = timezone(timedelta(hours=9))
 class InputImagePool:
     """入力画像プール管理（重複回避・均等分散・毎回スキャン対応）"""
     
-    def __init__(self, source_directory: str, supported_formats: List[str], history_file: str = None):
+    def __init__(self, source_directory: str, supported_formats: List[str], history_file: Optional[str] = None):
         self.source_directory = source_directory
         self.supported_formats = supported_formats
         self.history_file = history_file

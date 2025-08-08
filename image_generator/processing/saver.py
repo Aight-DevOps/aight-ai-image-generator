@@ -3,8 +3,6 @@
 
 """
 ImageSaver - 生成画像の保存機能
-- save_image_to_s3_and_dynamodb: AWS 保存処理
-- save_image_locally: ローカル保存処理
 """
 
 import os
@@ -24,25 +22,25 @@ class ImageSaver:
 
     def __init__(self, config: dict, aws_client: AWSClientManager, temp_dir: str, local_mode: bool=False):
         self.config = config
-        self.s3 = aws_client.s3_client
-        self.dynamodb_table = aws_client.dynamodb_table
-        self.lambda_client = getattr(aws_client, 'lambda_client', None)
+        self.s3 = aws_client.s3_client if aws_client else None
+        self.dynamodb_table = aws_client.dynamodb_table if aws_client else None
+        self.lambda_client = getattr(aws_client, 'lambda_client', None) if aws_client else None
         self.logger = ColorLogger()
         self.temp_dir = temp_dir
         self.local_mode = local_mode
 
     def save_image_locally(self, image_path: str, index: int, response: dict, gen_type, input_path: str):
-        """ローカル保存処理"""
+        """ローカル保存処理（メタデータ強化版）"""
         now = datetime.now(JST).strftime("%Y%m%d%H%M%S")
-        fast = "_fast" if gen_type.fast_mode else ""
+        fast = "_fast" if getattr(gen_type, 'fast_mode', False) else ""
         ultra = "_ultra_safe" if getattr(gen_type, 'ultra_safe_mode', False) else ""
         bedrock = "_bedrock" if getattr(gen_type, 'bedrock_enabled', False) else ""
-        pose = f"_{gen_type.pose_mode}" if getattr(gen_type, 'pose_mode', None) else ""
-        model = gen_type.model_name.replace('.safetensors','').replace(' ', '_')
+        pose = f"_{getattr(gen_type, 'pose_mode', 'detection')}" if hasattr(gen_type, 'pose_mode') else ""
+        model = getattr(gen_type, 'model_name', 'unknown').replace('.safetensors','').replace(' ', '_')
         image_id = f"local_sdxl_{gen_type.name}_{model}{fast}{ultra}{bedrock}{pose}_{now}_{index:03d}"
 
-        out_dir = self.config['local_execution']['output_directory']
-        if self.config['local_execution'].get('create_subdirs', True):
+        out_dir = self.config.get('local_execution', {}).get('output_directory', './output_test_images')
+        if self.config.get('local_execution', {}).get('create_subdirs', True):
             out_dir = os.path.join(out_dir, gen_type.name)
         os.makedirs(out_dir, exist_ok=True)
 
@@ -50,27 +48,50 @@ class ImageSaver:
         shutil.copy2(image_path, dst)
         self.logger.print_success(f"📁 ローカル保存完了: {dst} ({os.path.getsize(dst)} bytes)")
 
-        # メタデータ
+        # 強化されたメタデータ
         params = response.get('parameters', {})
+        
+        # generation_mode の決定
+        generation_mode = 'sdxl_unified'
+        if getattr(gen_type, 'fast_mode', False):
+            generation_mode = 'fast'
+        elif getattr(gen_type, 'bedrock_enabled', False):
+            generation_mode = 'bedrock'
+        elif getattr(gen_type, 'ultra_safe_mode', False):
+            generation_mode = 'ultra_safe'
+        
         metadata = {
+            # 必須フィールド
             "image_id": image_id,
-            "created_at": now,
             "genre": gen_type.name,
-            "model_name": gen_type.model_name,
+            "generation_mode": generation_mode,
+            "created_at": now,
+            "model_name": getattr(gen_type, 'model_name', 'unknown'),
+            
+            # 詳細フィールド
             "input_image": os.path.basename(input_path) if input_path else None,
-            "pose_mode": getattr(gen_type, 'pose_mode', None),
-            "fast_mode_enabled": gen_type.fast_mode,
+            "pose_mode": getattr(gen_type, 'pose_mode', 'detection'),
+            "fast_mode_enabled": getattr(gen_type, 'fast_mode', False),
             "bedrock_enabled": getattr(gen_type, 'bedrock_enabled', False),
             "ultra_memory_safe_enabled": getattr(gen_type, 'ultra_safe_mode', False),
+            
+            # SDXL統合生成パラメータ
             "sdxl_unified_generation": {
                 "prompt": params.get('prompt', ''),
                 "negative_prompt": params.get('negative_prompt', ''),
-                "steps": self.config['sdxl_generation']['steps'],
-                "cfg_scale": self.config['sdxl_generation']['cfg_scale'],
-                "width": self.config['sdxl_generation']['width'],
-                "height": self.config['sdxl_generation']['height']
-            }
+                "steps": self.config.get('sdxl_generation', {}).get('steps', 30),
+                "cfg_scale": self.config.get('sdxl_generation', {}).get('cfg_scale', 7.0),
+                "width": self.config.get('sdxl_generation', {}).get('width', 1024),
+                "height": self.config.get('sdxl_generation', {}).get('height', 1024),
+                "sampler_name": self.config.get('sdxl_generation', {}).get('sampler_name', 'DPM++ 2M Karras')
+            },
+            
+            # Register用フィールド
+            "s3Key": f"image-pool/{gen_type.name}/{image_id}.png",
+            "imageState": "unprocessed",
+            "postingStage": "notposted"
         }
+        
         meta_path = os.path.join(out_dir, f"{image_id}_metadata.json")
         with open(meta_path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)

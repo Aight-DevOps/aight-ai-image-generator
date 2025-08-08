@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-SecureRandom - 暗号学的に安全なランダム関数
-EnhancedSecureRandom - 重複回避・重み付き選択機能
+SecureRandom - セキュアランダム機能
 """
 
 import secrets
 import json
 from collections import deque, Counter
-from typing import List, Any
+from typing import List, Any, Union, Dict, Optional
 
 class SecureRandom:
     """暗号学的に安全なランダム関数を提供するクラス（既存互換性維持）"""
@@ -50,10 +49,8 @@ class EnhancedSecureRandom:
     
     def __init__(self):
         self.rng = secrets.SystemRandom()
-        self.histories: dict[str, deque] = {}
-        self.counters: dict[str, Counter] = {}
-    
-    # ---------- 内部ユーティリティ ---------- #
+        self.histories: Dict[str, deque] = {}
+        self.counters: Dict[str, Counter] = {}
     
     @staticmethod
     def _to_hashable(item):
@@ -71,8 +68,6 @@ class EnhancedSecureRandom:
                 return json.dumps(item, ensure_ascii=False, sort_keys=True)
             return str(item)
     
-    # ---------- 公開メソッド ---------- #
-    
     def choice_no_repeat(self, sequence, category: str = "default", window: int = 3):
         """
         直近 window 回に出ていない要素を優先しつつランダム選択
@@ -84,14 +79,14 @@ class EnhancedSecureRandom:
         # カテゴリ別履歴・カウンタ初期化
         if category not in self.histories:
             self.histories[category] = deque(maxlen=window)
-        self.counters[category] = self.counters.get(category, Counter())
+            self.counters[category] = Counter()
         
         history = self.histories[category]
         counter = self.counters[category]
         
         # 「履歴にないもの」を候補に
         candidates = [item for item in sequence 
-                     if self._to_hashable(item) not in history]
+                      if self._to_hashable(item) not in history]
         
         # 全て履歴にある場合は履歴クリア
         if not candidates:
@@ -124,7 +119,7 @@ class EnhancedSecureRandom:
             shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
         return shuffled
     
-    def get_usage_stats(self, category: str | None = None):
+    def get_usage_stats(self, category: Optional[str] = None):
         """
         使用統計を辞書で返す
         - category 指定なしで全カテゴリ集計

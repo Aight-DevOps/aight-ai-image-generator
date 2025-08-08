@@ -2,10 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Batch module for image generation
-バッチ処理機能モジュール
+Batch processing module
 """
 
 from .processor import BatchProcessor
 
-__all__ = ['BatchProcessor']
+__all__ = ["BatchProcessor"]

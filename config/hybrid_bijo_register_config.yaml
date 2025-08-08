@@ -1,0 +1,18 @@
+aws:
+  region: ap-northeast-1
+  s3_bucket: aight-media-images
+  dynamodb_table: AightMediaImageData
+
+batch_directories:
+  normal: ./output/test_images/normal
+  gyal_black: ./output/test_images/gyal_black
+  gyal_erotic: ./output/test_images/gyal_erotic
+  gyal_natural: ./output/test_images/gyal_natural
+  seiso: ./output/test_images/seiso
+  teen: ./output/test_images/teen
+
+processing:
+  cleanup_local_files_on_success: false
+
+file_scanner:
+  supported_formats: ["png", "jpg", "jpeg"]
