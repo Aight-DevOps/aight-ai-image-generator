@@ -41,6 +41,7 @@ class BedrockManager:
         try:
             self.logger.print_status("🤖 Bedrockで全時間帯コメント生成中...")
             time.sleep(1)  # API制限対策
+            
             response = self.lambda_client.invoke(
                 FunctionName=self.function_name,
                 InvocationType='RequestResponse',
@@ -49,8 +50,10 @@ class BedrockManager:
                     'image_metadata': image_metadata
                 })
             )
+            
             payload = json.loads(response['Payload'].read())
             body = json.loads(payload.get('body', '{}'))
+            
             if body.get('success'):
                 comments = body.get('all_comments', {})
                 self.logger.print_success(f"🤖 コメント生成完了: {len(comments)}件")
@@ -59,11 +62,19 @@ class BedrockManager:
             else:
                 self.logger.print_warning(f"⚠️ コメント生成失敗: {body.get('error')}")
                 return {}
+                
         except ClientError as e:
             code = e.response.get('Error', {}).get('Code', 'Unknown')
-            self.logger.print_warning(f"⚠️ Bedrock ClientError: {code}")
-            time.sleep(5)
+            if code == 'ThrottlingException':
+                self.logger.print_warning("⚠️ Bedrock API制限に達しました。画像生成は継続します。")
+                time.sleep(5)  # スロットリング時は長めに待機
+            elif code == 'TooManyRequestsException':
+                self.logger.print_warning("⚠️ Lambda同時実行制限に達しました。画像生成は継続します。")
+                time.sleep(3)
+            else:
+                self.logger.print_warning(f"⚠️ Bedrock ClientError: {code}")
             return {}
+            
         except Exception as e:
             self.logger.print_error(f"❌ Bedrockコメント生成エラー: {e}")
             return {}

@@ -1,3 +1,5 @@
+# image_generator/processing/saver.py
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -6,7 +8,6 @@ ImageSaver - 生成画像の保存機能
 """
 
 import os
-import time
 import json
 import shutil
 from datetime import datetime, timezone, timedelta
@@ -24,69 +25,58 @@ class ImageSaver:
         self.config = config
         self.s3 = aws_client.s3_client if aws_client else None
         self.dynamodb_table = aws_client.dynamodb_table if aws_client else None
-        self.lambda_client = getattr(aws_client, 'lambda_client', None) if aws_client else None
         self.logger = ColorLogger()
         self.temp_dir = temp_dir
         self.local_mode = local_mode
 
-    def save_image_locally(self, image_path: str, index: int, response: dict, gen_type, input_path: str, pose_mode: str = None):
+    def save_image_locally(self, image_path: str, index: int, response: dict,
+                           gen_type, input_path: str, pose_mode: str):
         """ローカル保存処理（メタデータ強化版）"""
         now = datetime.now(JST).strftime("%Y%m%d%H%M%S")
-        fast = "_fast" if getattr(gen_type, 'fast_mode', False) else ""
-        ultra = "_ultra_safe" if getattr(gen_type, 'ultra_safe_mode', False) else ""
-        bedrock = "_bedrock" if getattr(gen_type, 'bedrock_enabled', False) else ""
-        pose = f"_{pose_mode}" if pose_mode else ""
-        model = getattr(gen_type, 'model_name', 'unknown').replace('.safetensors','').replace(' ', '_')
+        fast = "_fast" if gen_type.fast_mode else ""
+        ultra = "_ultra_safe" if gen_type.ultra_safe_mode else ""
+        bedrock = "_bedrock" if gen_type.bedrock_enabled else ""
+        pose = f"_{pose_mode}"
+        model = gen_type.model_name.replace('.safetensors','').replace(' ', '_')
         image_id = f"local_sdxl_{gen_type.name}_{model}{fast}{ultra}{bedrock}{pose}_{now}_{index:03d}"
 
-        out_dir = self.config.get('local_execution', {}).get('output_directory', './output_test_images')
-        if self.config.get('local_execution', {}).get('create_subdirs', True):
+        out_dir = self.config['local_execution']['output_directory']
+        if self.config['local_execution']['create_subdirs']:
             out_dir = os.path.join(out_dir, gen_type.name)
         os.makedirs(out_dir, exist_ok=True)
 
         dst = os.path.join(out_dir, f"{image_id}.png")
         shutil.copy2(image_path, dst)
-        self.logger.print_success(f"📁 ローカル保存完了: {dst} ({os.path.getsize(dst)} bytes)")
+        self.logger.print_success(f"📁 ローカル保存完了: {dst}")
 
-        # 強化されたメタデータ
         params = response.get('parameters', {})
-
-        # generation_mode の決定
-        generation_mode = 'sdxl_unified'
-        if getattr(gen_type, 'fast_mode', False):
-            generation_mode = 'fast'
-        elif getattr(gen_type, 'bedrock_enabled', False):
-            generation_mode = 'bedrock'
-        elif getattr(gen_type, 'ultra_safe_mode', False):
-            generation_mode = 'ultra_safe'
-
         metadata = {
-            # 必須フィールド
             "image_id": image_id,
             "genre": gen_type.name,
-            "generation_mode": generation_mode,
+            "generation_mode": (
+                "fast" if gen_type.fast_mode else
+                "bedrock" if gen_type.bedrock_enabled else
+                "ultra_safe" if gen_type.ultra_safe_mode else
+                "sdxl_unified"
+            ),
             "created_at": now,
-            "model_name": getattr(gen_type, 'model_name', 'unknown'),
-
-            # 詳細フィールド
-            "input_image": input_path if input_path else "pose_specification_mode",
-            "pose_mode": pose_mode or "detection",
-            "fast_mode_enabled": getattr(gen_type, 'fast_mode', False),
-            "bedrock_enabled": getattr(gen_type, 'bedrock_enabled', False),
-            "ultra_memory_safe_enabled": getattr(gen_type, 'ultra_safe_mode', False),
-
-            # SDXL統合生成パラメータ
+            "model_name": gen_type.model_name,
+            "input_image": input_path or "pose_specification_mode",
+            "pose_mode": pose_mode,
+            "fast_mode_enabled": gen_type.fast_mode,
+            "bedrock_enabled": gen_type.bedrock_enabled,
+            "ultra_memory_safe_enabled": gen_type.ultra_safe_mode,
             "sdxl_unified_generation": {
                 "prompt": params.get('prompt', ''),
                 "negative_prompt": params.get('negative_prompt', ''),
-                "steps": self.config.get('sdxl_generation', {}).get('steps', 30),
-                "cfg_scale": self.config.get('sdxl_generation', {}).get('cfg_scale', 7.0),
-                "width": self.config.get('sdxl_generation', {}).get('width', 1024),
-                "height": self.config.get('sdxl_generation', {}).get('height', 1024),
-                "sampler_name": self.config.get('sdxl_generation', {}).get('sampler_name', 'DPM++ 2M Karras')
+                "steps": self.config['sdxl_generation']['steps'],
+                "cfg_scale": self.config['sdxl_generation']['cfg_scale'],
+                "width": self.config['sdxl_generation']['width'],
+                "height": self.config['sdxl_generation']['height'],
+                "sampler_name": self.config['sdxl_generation']['sampler_name']
             },
-
-            # Register用フィールド
+            "preGeneratedComments": response.get('comments', {}),
+            "commentGeneratedAt": response.get('commentGeneratedAt', ''),
             "s3Key": f"image-pool/{gen_type.name}/{image_id}.png",
             "imageState": "unprocessed",
             "postingStage": "notposted"
@@ -98,26 +88,23 @@ class ImageSaver:
         self.logger.print_status(f"📄 メタデータ保存: {meta_path}")
         return True
 
-    def save_image_to_s3_and_dynamodb(self, image_path: str, index: int, response: dict, gen_type, input_path: str, pose_mode: str = None):
+    def save_image_to_s3_and_dynamodb(self, image_path: str, index: int, response: dict,
+                                      gen_type, input_path: str, pose_mode: str):
         """S3 と DynamoDB 保存処理"""
         now = datetime.now(JST).strftime("%Y%m%d%H%M%S")
-        fast = "_fast" if getattr(gen_type, 'fast_mode', False) else ""
+        fast = "_fast" if gen_type.fast_mode else ""
         ultra = "_ultra_safe"
-        bedrock = "_bedrock" if getattr(gen_type, 'bedrock_enabled', False) else ""
-        pose = f"_{pose_mode}" if pose_mode else ""
-        image_id = f"sdxl_{gen_type.name}_{now}_{index:03d}{fast}{ultra}{bedrock}{pose}"
+        bedrock = "_bedrock" if gen_type.bedrock_enabled else ""
+        pose = f"_{pose_mode}"
+        image_id = f"sdxl_{gen_type.name}_{now}_{index:03d}"
         s3_key = f"image-pool/{gen_type.name}/{image_id}.png"
 
         # S3 アップロード
         try:
             self.logger.print_status(f"📤 S3 アップロード: s3://{self.config['aws']['s3_bucket']}/{s3_key}")
             with open(image_path, 'rb') as f:
-                self.s3.upload_fileobj(
-                    f,
-                    self.config['aws']['s3_bucket'],
-                    s3_key,
-                    ExtraArgs={'ContentType': 'image/png'}
-                )
+                self.s3.upload_fileobj(f, self.config['aws']['s3_bucket'], s3_key,
+                    ExtraArgs={'ContentType': 'image/png'})
             self.logger.print_success("✅ S3 アップロード完了")
         except Exception as e:
             self.logger.print_error(f"❌ S3 アップロード失敗: {e}")
@@ -127,9 +114,9 @@ class ImageSaver:
         params = response.get('parameters', {})
         base = {
             "generation_method": "sdxl_unified",
-            "input_image": input_path if input_path else "pose_specification_mode",
-            "pose_mode": pose_mode or "detection",
-            "fast_mode_enabled": getattr(gen_type, 'fast_mode', False)
+            "input_image": input_path or "pose_specification_mode",
+            "pose_mode": pose_mode,
+            "fast_mode_enabled": gen_type.fast_mode
         }
         sdxl = {
             "prompt": params.get('prompt', ''),
@@ -142,7 +129,7 @@ class ImageSaver:
             "model": gen_type.model_name
         }
         control = {
-            "enabled": pose_mode == "detection" if pose_mode else False,
+            "enabled": pose_mode == "detection",
             "openpose": {
                 "enabled": str(self.config['controlnet']['openpose']['enabled']),
                 "weight": str(self.config['controlnet']['openpose']['weight'])
@@ -158,7 +145,7 @@ class ImageSaver:
             "denoising_strength": str(self.config['adetailer']['denoising_strength'])
         }
 
-        metadata_item = {
+        item = {
             "imageId": image_id,
             "s3Bucket": self.config['aws']['s3_bucket'],
             "s3Key": s3_key,
@@ -167,8 +154,8 @@ class ImageSaver:
             "postingStage": "notposted",
             "createdAt": now,
             "suitableTimeSlots": self.config.get('default_suitable_slots', []),
-            "preGeneratedComments": {},
-            "commentGeneratedAt": "",
+            "preGeneratedComments": response.get('comments', {}),
+            "commentGeneratedAt": response.get('commentGeneratedAt', ''),
             "sdParams": {
                 "base": base,
                 "sdxl_unified": sdxl,
@@ -183,10 +170,9 @@ class ImageSaver:
             "movedToArchive": False
         }
 
-        # DynamoDB 登録
         try:
             self.logger.print_status(f"📝 DynamoDB 登録: {image_id}")
-            self.dynamodb_table.put_item(Item=metadata_item)
+            self.dynamodb_table.put_item(Item=item)
             self.logger.print_success("✅ DynamoDB 登録完了")
         except Exception as e:
             self.logger.print_error(f"❌ DynamoDB 保存失敗: {e}")
