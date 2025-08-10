@@ -41,7 +41,7 @@ from ..processing.image_processor import ImageProcessor
 from ..processing.generator_engine import GeneratorEngine
 from ..processing.saver import ImageSaver
 from ..memory.manager import MemoryManager
-from ..aws.bedrock import BedrockManager
+from ..aws.bedrock_manager import BedrockManager
 from ..aws.metadata import MetadataManager
 
 if TYPE_CHECKING:
@@ -165,13 +165,14 @@ class HybridBijoImageGeneratorV7:
         # BedrockManager初期化（修正箇所）
         # ===============================================
         try:
-            if (self.config.get('bedrock_features', {}).get('enabled', False) and 
+            if (self.config.get('bedrock_features', {}).get('enabled', False) and
                 self.aws and hasattr(self.aws, 'lambda_client')):
                 
                 self.bedrock_manager = BedrockManager(
                     self.aws.lambda_client,
                     self.logger,
-                    self.config
+                    self.config,
+                    cfg_mgr  # ConfigManagerインスタンスを渡す
                 )
                 self.logger.print_success("✅ BedrockManager初期化完了")
             else:
@@ -182,7 +183,6 @@ class HybridBijoImageGeneratorV7:
                     self.logger.print_status("📋 AWS未接続")
                 elif not hasattr(self.aws, 'lambda_client'):
                     self.logger.print_status("📋 Lambda クライアント未初期化")
-                    
         except Exception as e:
             self.logger.print_warning(f"⚠️ BedrockManager初期化エラー: {e}")
             self.bedrock_manager = None
@@ -386,15 +386,24 @@ class HybridBijoImageGeneratorV7:
         self.logger.print_status(f"🔍 DEBUG: local_execution.enabled = {self.config.get('local_execution', {}).get('enabled', True)}")
         self.logger.print_status(f"🔍 DEBUG: bedrock_features.enabled = {self.config.get('bedrock_features', {}).get('enabled', False)}")
         
-        # bedrock_manager属性の安全な確認（修正箇所）
+        # bedrock_manager属性の安全な確認
         if not hasattr(self, 'bedrock_manager') or self.bedrock_manager is None:
             self.logger.print_status("📋 BedrockManagerが初期化されていないため、コメント生成をスキップ")
             metadata['comments'] = {}
             metadata['commentGeneratedAt'] = ''
             return metadata
 
-        # 修正：local_execution条件を削除し、bedrock_features.enabledのみをチェック
-        if not self.config.get('bedrock_features', {}).get('enabled', False):
+        # 修正：ローカルモードの場合はBedrockを無効にする
+        is_local_mode = self.config.get('local_execution', {}).get('enabled', True)
+        is_bedrock_enabled = self.config.get('bedrock_features', {}).get('enabled', False)
+        
+        if is_local_mode:
+            self.logger.print_status("📋 ローカルモード: Bedrockコメント生成をスキップ")
+            metadata['comments'] = self._get_fallback_comments()
+            metadata['commentGeneratedAt'] = datetime.now(JST).isoformat()
+            return metadata
+        
+        if not is_bedrock_enabled:
             self.logger.print_status("📋 Bedrock機能が無効のため、コメント生成をスキップ")
             metadata['comments'] = {}
             metadata['commentGeneratedAt'] = ''
@@ -426,6 +435,25 @@ class HybridBijoImageGeneratorV7:
             metadata['commentGeneratedAt'] = ''
 
         return metadata
+
+    def _get_fallback_comments(self) -> dict:
+        """ローカルモード用のフォールバックコメント"""
+        fallback_comments = {
+            'early_morning': "おはようございます！今日も素敵な一日になりそうです✨",
+            'morning': "今日もお仕事頑張ってください！応援しています📣",
+            'late_morning': "午前中お疲れ様！コーヒーブレイクでひと息つこう☕",
+            'lunch': "お昼休みですね！何か美味しいものを食べて午後も頑張りましょう🍽️",
+            'afternoon': "午後もお疲れ様！ティータイムで気分転換はいかが？🫖",
+            'pre_evening': "もうすぐ夕方ですね！今日一日もあと少し頑張って🌅",
+            'evening': "今日もお疲れ様でした！これからの予定はあるのかな？🌙",
+            'night': "今日もお疲れ様！夜の自分時間を大切に過ごしてね💆♀️",
+            'late_night': "深夜だけど今夜はどんな時間を過ごしてる？🌃",
+            'mid_night': "今日も一日お疲れ様でした！ゆっくり休んでおやすみなさい🌙✨",
+            'general': "素敵な時間をお過ごしください💫"
+        }
+    
+        self.logger.print_status(f"📝 ローカルモード: フォールバックコメント使用（{len(fallback_comments)}件）")
+        return fallback_comments
 
     # ===============================================
     # 11スロット対応ユーティリティメソッド（新機能）

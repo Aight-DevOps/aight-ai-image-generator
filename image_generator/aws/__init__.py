@@ -6,7 +6,7 @@ AWS module for image generation
 AWS連携機能モジュール
 """
 
-from .bedrock import BedrockManager
+from .bedrock_manager import BedrockManager
 from .metadata import MetadataManager
 
 __all__ = [

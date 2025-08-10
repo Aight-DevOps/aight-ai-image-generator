@@ -30,7 +30,7 @@ from ..processor.batch_processor import BatchProcessor
 
 # BedrockManagerのインポート（新規追加）
 try:
-    from ..aws.bedrock_manager import BedrockManager
+    from image_generator.aws.bedrock_manager import BedrockManager
     BEDROCK_MANAGER_AVAILABLE = True
 except ImportError:
     BEDROCK_MANAGER_AVAILABLE = False
@@ -139,8 +139,9 @@ class HybridBijoRegisterV9:
             self.logger.print_error(f"❌ AWS接続エラー: {e}")
             raise
 
+    # setup_bedrock_managerメソッドの修正
     def setup_bedrock_manager(self):
-        """BedrockManager初期化（新機能）"""
+        """BedrockManager初期化（修正版）"""
         if not self.config['bedrock']['enabled']:
             self.logger.print_status("📋 Bedrock機能無効のためBedrockManagerをスキップ")
             self.bedrock_manager = None
@@ -152,15 +153,21 @@ class HybridBijoRegisterV9:
             return
 
         try:
+            # ConfigManagerインスタンスを作成
+            from common.config_manager import ConfigManager
+            config_manager = ConfigManager(self.logger)
+            
             self.bedrock_manager = BedrockManager(
                 lambda_client=self.lambda_client,
                 logger=self.logger,
-                config=self.config
+                config=self.config,
+                config_manager=config_manager
             )
             self.logger.print_success("✅ BedrockManager初期化完了")
         except Exception as e:
             self.logger.print_warning(f"⚠️ BedrockManager初期化エラー、従来方式を使用: {e}")
             self.bedrock_manager = None
+
 
     def generate_bedrock_comments(self, image_metadata):
         """Bedrockコメント生成（BedrockManagerに委譲 or 従来方式）"""
@@ -253,6 +260,7 @@ class HybridBijoRegisterV9:
         except Exception as e:
             self.logger.print_warning(f"⚠️ 従来方式Bedrockコメント生成エラー: {e}")
             return {}
+
     def process_single_pair(self, image_path: str, metadata_path: str) -> bool:
         """単一ペア処理（完全版 + BedrockManager対応）"""
         try:
@@ -397,3 +405,62 @@ class HybridBijoRegisterV9:
             self.logger.print_warning("⚠️ BedrockManagerは利用できませんでしたが、従来方式でコメント生成が実行されました")
         else:
             self.logger.print_status("📋 Bedrock機能は無効です")
+
+    def show_menu_and_process(self):
+        """メニュー表示と処理実行"""
+        while True:
+            print("\n" + "="*50)
+            print("🎨 Hybrid Bijo Register v9 - メイン メニュー")
+            print("="*50)
+            print("1. normal - 通常画像バッチ処理")
+            print("2. gyal - ギャル画像バッチ処理") 
+            print("3. seiso - 清楚画像バッチ処理")
+            print("4. teen - ティーン画像バッチ処理")
+            print("5. all - 全ジャンル一括処理")
+            print("0. 終了")
+            print("="*50)
+            
+            try:
+                choice = input("選択してください (0-5): ").strip()
+                
+                if choice == "0":
+                    self.logger.print_success("👋 処理を終了します")
+                    break
+                elif choice == "1":
+                    self.process_batch("normal")
+                elif choice == "2":
+                    self.process_batch("gyal")
+                elif choice == "3":
+                    self.process_batch("seiso")
+                elif choice == "4":
+                    self.process_batch("teen")
+                elif choice == "5":
+                    self._process_all_genres()
+                else:
+                    print("❌ 無効な選択です。0-5の数字を入力してください。")
+                    continue
+                    
+            except KeyboardInterrupt:
+                self.logger.print_warning("\n🛑 ユーザーによる中断")
+                break
+            except Exception as e:
+                self.logger.print_error(f"❌ メニュー処理エラー: {e}")
+                continue
+
+    def _process_all_genres(self):
+        """全ジャンル一括処理"""
+        genres = ["normal", "gyal", "seiso", "teen"]
+        total_success = 0
+        
+        self.logger.print_stage("🚀 全ジャンル一括処理開始")
+        
+        for genre in genres:
+            try:
+                success = self.process_batch(genre)
+                total_success += success
+                self.logger.print_status(f"📊 {genre}: {success}件成功")
+            except Exception as e:
+                self.logger.print_error(f"❌ {genre}処理エラー: {e}")
+                continue
+        
+        self.logger.print_success(f"🎉 全ジャンル処理完了: 合計{total_success}件成功")
