@@ -1,0 +1,73 @@
+# Hybrid Bijo Register v9 設定ファイル（11スロット対応版）
+
+# AWS設定
+aws:
+  region: "ap-northeast-1"
+  s3_bucket: "aight-media-images"
+  dynamodb_table: "AightMediaImageData"
+
+# Bedrock機能設定
+bedrock:
+  enabled: true
+  lambda_function_name: "aight_bedrock_comment_generator"
+
+# ジャンル別ディレクトリ設定（バッチ処理用）
+batch_directories:
+  normal: "./output/test_images/normal"
+  gyal_black: "./output/test_images/gyal_black"
+  gyal_natural: "./output/test_images/gyal_natural"
+  gyal_erotic: "./output/test_images/gyal_erotic"
+  seiso: "./output/test_images/seiso"
+  teen: "./output/test_images/teen"
+
+# 処理設定
+processing:
+  cleanup_local_files_on_success: true
+  skip_on_individual_errors: true
+  abort_on_aws_connection_errors: true
+  supported_image_formats: ["png", "jpg", "jpeg"]
+  delay_between_items: 1
+
+# エラーハンドリング
+error_handling:
+  max_individual_retries: 0 # リトライなし
+  log_duplicate_errors: true
+  continue_on_bedrock_errors: true
+
+# 11スロット対応：デフォルト時間帯スロット
+default_suitable_slots:
+  - "early_morning"   # 新追加: 05:00-07:59
+  - "morning"         # 既存: 08:00-09:59
+  - "late_morning"    # 新追加: 10:00-11:59
+  - "lunch"           # 既存: 12:00-13:59
+  - "afternoon"       # 新追加: 14:00-15:59
+  - "pre_evening"     # 新追加: 16:00-17:59
+  - "evening"         # 既存: 18:00-19:59
+  - "night"           # 既存: 20:00-21:59
+  - "late_night"      # 新追加: 22:00-23:59
+  - "mid_night"       # 既存: 00:00-04:59
+  - "general"         # 既存: フォールバック用
+
+# 11スロット対応：ジャンル別推奨時間帯マッピング（オプション）
+genre_slot_mapping:
+  gyal_erotic:
+    recommended: "night"
+    suitable: ["pre_evening", "evening", "night", "late_night", "general"]
+  gyal_black:
+    recommended: "evening"
+    suitable: ["afternoon", "pre_evening", "evening", "night", "general"]
+  seiso:
+    recommended: "morning"
+    suitable: ["early_morning", "morning", "late_morning", "lunch", "general"]
+  teen:
+    recommended: "afternoon"
+    suitable: ["morning", "late_morning", "lunch", "afternoon", "general"]
+  normal:
+    recommended: "general"
+    suitable: ["early_morning", "morning", "late_morning", "lunch", "afternoon", "pre_evening", "evening", "night", "late_night", "mid_night", "general"]
+
+# ログ設定
+logging:
+  level: "INFO"
+  detailed_progress: true
+  show_metadata_preview: false

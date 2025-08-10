@@ -1,0 +1,288 @@
+# 美少女メディア事業設定ファイル Ver7.0 - SDXL一本化版
+
+# AWS設定
+aws:
+  region: "ap-northeast-1"
+  s3_bucket: "aight-media-images"
+  dynamodb_table: "AightMediaImageData"
+
+# Stable Diffusion API設定
+stable_diffusion:
+  api_url: "https://192.168.0.100:7860"
+  verify_ssl: false
+  timeout: 3600
+
+# 入力画像設定
+input_images:
+  source_directory: "/mnt/e/Repository/SD_INPUT/SOURCE_IMAGES"
+  supported_formats: ["jpg", "jpeg", "png"]
+  resize_quality: 95
+
+# SDXL一本化生成設定（Phase1削除、Phase2をSDXL専用化）
+sdxl_generation:
+  # model_name は config/generation_types.yaml で各カテゴリごとに指定
+  width: 896
+  height: 1152
+  steps: 30
+  cfg_scale: 7.0
+  sampler_name: "DPM++ 2M Karras"
+  scheduler: "karras"
+  denoising_strength: 0.0 # txt2img
+  # Hires.fix無効化（ネイティブ高解像度のため）
+  enable_hr: false
+  hr_scale: 1.0
+  hr_upscaler: "R-ESRGAN 4x+"
+  hr_second_pass_steps: 0
+
+# モデル切り替え設定（新規追加）
+model_switching:
+  enabled: true
+  switch_timeout: 180 # モデル切り替えタイムアウト（秒）
+  wait_after_switch: 10 # 切り替え後待機時間（秒）
+  verification_retries: 3 # 切り替え確認リトライ回数
+
+# ControlNet設定（SDXL対応）
+controlnet:
+  openpose:
+    enabled: true
+    # model: "OpenPoseXL2 [f4251cb4]"
+    model: "control_v11p_sd15_openpose_fp16 [73c2b67d]"
+    module: "dw_openpose_full"
+    weight: 0.8
+    resize_mode: "Just Resize"
+    processor_res: 512
+    threshold_a: 0.5
+    threshold_b: 0.5
+    guidance_start: 0.0
+    guidance_end: 0.9
+    pixel_perfect: true
+    control_mode: "ControlNet is more important"
+  depth:
+    enabled: true
+    # model: "control_depth_xl [4a0891d4]"
+    model: "control_v11f1p_sd15_depth_fp16 [4b72d323]"
+    module: "depth_midas"
+    weight: 0.3
+    resize_mode: "Crop and Resize"
+    processor_res: 512
+    threshold_a: 0.5
+    threshold_b: 0.5
+    guidance_start: 0.0
+    guidance_end: 1.0
+    pixel_perfect: true
+    control_mode: "Balanced"
+
+# ADetailer設定（一本化）
+adetailer:
+  enabled: true
+  model: "face_yolov8n.pt"
+  confidence: 0.3
+  mask_blur: 4
+  denoising_strength: 0.35
+  inpaint_only_masked: true
+  inpaint_only_masked_padding: 32
+  inpaint_width: 512
+  inpaint_height: 640
+  use_steps: false
+  steps: 12
+  use_cfg_scale: false
+  cfg_scale: 6.5
+
+# 手足強化用プロンプト
+hand_enhancement_prompt: "perfect hands, five fingers, natural pose, correct anatomy"
+hand_enhancement_negative: "extra fingers, six fingers, deformed hands, bad hands, three legs, extra legs"
+
+# 手足品質強化設定
+hand_foot_enhancement:
+  enabled: true
+  strict_anatomy_mode: true
+  additional_negative_weight: 1.4
+  hand_specific_prompts:
+    - "perfect hands"
+    - "five fingers"
+    - "correct finger count"
+    - "natural hand pose"
+  foot_specific_prompts:
+    - "two legs only"
+    - "correct leg anatomy"
+    - "proper foot structure"
+
+# Bedrock機能設定
+bedrock_features:
+  enabled: true
+  lambda_function_name: "aight_bedrock_comment_generator"
+
+# エラーハンドリング設定
+error_handling:
+  max_retries: 5
+  retry_delay: 5
+  fallback_to_simple_generation: false
+
+# 一時ファイル管理
+temp_files:
+  directory: "/tmp/sd_process"
+  cleanup_on_success: true
+  cleanup_on_error: false
+
+# プロンプト設定ファイルパス
+prompt_files:
+  generation_types: "config/generation_types.yaml"
+  prompts: "config/prompts.yaml"
+  random_elements: "config/random_elements.yaml"
+
+# SNS投稿設定
+social_media:
+  twitter:
+    posting_schedule:
+      main_times:
+        - "20:00"
+        - "20:30"
+        - "21:00"
+        - "21:30"
+        - "22:00"
+      sub_times:
+        - "07:30"
+        - "08:00"
+        - "08:30"
+        - "12:00"
+        - "12:30"
+    daily_target: 6
+    hashtags:
+      - "#美少女"
+      - "#AI美女"
+      - "#AIアート"
+      - "#美人"
+      - "#可愛い"
+
+# Slack通知設定
+slack:
+  webhook_url: "https://hooks.slack.com/services/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"
+  channels:
+    generation_log: "#bijo-generation"
+    posting_log: "#bijo-posting"
+    error_log: "#bijo-errors"
+  notifications:
+    generation_success: true
+    generation_failure: true
+    posting_success: true
+    posting_failure: true
+    daily_summary: true
+
+# 投稿管理設定
+posting:
+  pool_minimum: 10
+  pool_target: 20
+  archive_after_days: 30
+  retry_attempts: 3
+  retry_interval: 300
+  post_confirmation_delay: 60
+
+# 画像生成設定
+generation:
+  batch_size: 10
+  daily_generation_target: 8
+  genres:
+    - normal
+    - seiso
+    - teen
+    - gyal_black
+    - gyal_natural
+    - gyal_erotic
+  priority_genre: "normal"
+  genre_distribution:
+    normal: 0.2
+    seiso: 0.2
+    teen: 0.2
+    gyal_black: 0.2
+    gyal_natural: 0.2
+    gyal_erotic: 0.2
+
+# 品質管理設定
+quality:
+  image_validation:
+    enabled: true
+    min_resolution: [896, 1152]
+    max_file_size: 10485760
+    allowed_formats: ["PNG", "JPEG"]
+  content_filtering:
+    enabled: true
+    nsfw_detection: true
+    inappropriate_content_threshold: 0.7
+
+# パフォーマンス設定
+performance:
+  concurrent_generations: 1
+  api_rate_limit: 10 # SDXL一本化により間隔を延長
+  s3_upload_timeout: 300
+  dynamodb_timeout: 30
+
+# ログ設定
+logging:
+  level: "INFO"
+  file_path: "logs/bijo_media.log"
+  max_file_size: 52428800
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# 事業戦略設定
+business:
+  current_phase: "phase1"
+  phase1:
+    duration_months: 6
+    follower_target: 1000
+    engagement_focus: true
+    monetization: false
+  phase2:
+    follower_threshold: 500
+    monetization_channels:
+      - "prompt_sales"
+      - "merchandise"
+      - "instagram_expansion"
+    revenue_target_monthly: 50000
+
+# 緊急時設定
+emergency:
+  auto_stop_on_errors: 5
+  maintenance_mode: false
+  contact_admin_threshold: 10
+
+# ローカル実行設定（完全保持）
+local_execution:
+  enabled: true # ローカル（AWS連携なし）
+  # enabled: false # 通常モード（AWS連携）
+  output_directory: "./output/test_images"
+  save_metadata: true
+  create_subdirs: true
+  keep_temp_files: true
+
+# 高速化設定（完全保持）
+fast_mode:
+  enabled: false # 通常品質モード
+  # SDXL用軽量化設定
+  sdxl_fast:
+    steps: 16 # 28 → 16
+    width: 640 # 896 → 640
+    height: 832 # 1152 → 832
+    cfg_scale: 6.0 # 6.5 → 6.0
+  # ControlNet軽量化
+  controlnet_fast:
+    openpose_weight: 1.5
+    depth_weight: 0.4
+    processor_res: 384
+  # ADetailer軽量化
+  adetailer_fast:
+    steps: 8 # 12 → 8
+    inpaint_width: 512
+    inpaint_height: 512
+
+# メモリ管理設定（完全保持）
+memory_management:
+  enabled: true
+  threshold_percent: 70
+  auto_adjustment_enabled: true
+  cleanup_interval: 1
+  aggressive_cleanup: true
+  preemptive_adjustment: true
+  ultra_safe_mode: true
+  max_memory_retries: 5
+  memory_recovery_delay: 10

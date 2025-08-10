@@ -1,0 +1,185 @@
+generation_types:
+  - name: "normal"
+    model_name: "yayoiMix_v25.safetensors [ca28aa4a44]"
+    prompt: "BREAK (1 beautiful Japanese gyaru:1.4), (modern reiwa gyaru:1.3), (natural japanese beauty:1.3), (small face:1.2), (cute facial features:1.2), (friendly smile:1.2), (approachable expression:1.2), (fair porcelain skin:1.2), (realistic skin texture:1.2), (natural dewy finish:1.2), (enhanced eye makeup:1.3), (defined thin eyeliner:1.3), (natural long eyelashes:1.3), (inner corner highlight:1.2), (tear bag emphasis:1.2), (white shimmer under eyes:1.2), (trendy eyeshadow:1.2), (well-shaped eyebrows:1.1), (natural lips:1.2), (bright sparkling eyes:1.2), (youthful charm:1.2), (casual confidence:1.2), (contemporary japanese girl:1.3), (instagram worthy:1.2), (natural kawaii:1.2), (reiwa era beauty:1.2), (gyaru eye makeup:1.2), (almond eye shape:1.2)"
+    negative_prompt: "BREAK plain makeup, no makeup, natural makeup, tanned skin, dark skin, conservative style, minimal jewelry, simple hair, natural hair color, outdated gyaru style, old-fashioned makeup, (airbrushed skin:1.3), (glossy plastic skin:1.3), (overly smooth skin:1.3), (artificial skin texture:1.2), (photoshop skin:1.2), flat facial features, childish expression, baby face, mature woman, sophisticated lady, serious expression, stern look, business woman, professional look, overly adult, (western features:1.4), (foreign appearance:1.4), (non-japanese:1.4), (caucasian:1.4), (european features:1.4), (thick heavy eyeliner:1.3), (overdone makeup:1.3), (artificial beauty:1.3), (doll-like:1.3), (mannequin-like:1.3), (vintage gyaru:1.3), (old fashioned gyaru:1.3)"
+    age_range: [19, 23]
+    random_elements: [
+        "hairstyles",
+        # "hairqualities",
+        "haircolors",
+        "cloths",
+        "facial_features",
+        "breast_size",
+        "Sexual_expressions",
+        "background",
+        "poses",
+      ]
+    lora_settings: # ← 追加
+      - lora_id: "SkimMilk"
+        strength_range: [0.65, 0.75]
+      - lora_id: "japanese_girl_v1.1"
+        strength_range: [0.4, 0.5]
+      - lora_id: "RealVisXL_V5.0_fp16"
+        strength_range: [0.5, 0.6]
+      - lora_id: "add-detail-xl"
+        strength_range: [0.3, 0.4]
+      - lora_id: "RealitiesEdgeXLLIGHTNING_TURBOV7"
+        strength_range: [0.2, 0.3]
+      - lora_id: "DetailedEyes_XL"
+        strength_range: [0.2, 0.3]
+
+  - name: "gyal_black"
+    model_name: "gyaruMix_v20.safetensors [14e4fdf31c]"
+    prompt: "BREAK (a stunningly sexy Japanese gal:1.2), sultry eyes, seductive gaze, mischievous smile, extremely provocative expression, double eyelid, large doll-like eyes, big glossy eyes, big dark irises, under-eye tear bag, eye bag highlight, emphasized eye bags, (defined natural lashes:1.1), light lash volume, (subtle mascara effect:1.2), individual lash definition, delicate eye framing, (delicate eyeliner, light beige eyeshadow:1.3), laminated brows, subtle ombré brows, (modern reiwa gyaru makeup with refined finish:1.3), glossy yet natural lips, moist lips, slightly parted lips, alluring lips, suggestive face, realistic skin texture, dewy skin finish, subtle blush, clear complexion, cleavage, playful, vulgar gyaru, glamorous and perfect body, daring, (loose sexual morals:1.4), sense of naughtiness, ambient lighting, clearly inviting gaze, sex appeal, lascivious, slutty, obscene, (erotic:1.3), modern gyaru style, vulgar touch, reiwa eye makeup, candid moment, (high nose bridge, defined nose, cosmetic surgery nose:1.2), (balanced hair coloring:1.3), (modern hair tone:1.2), (natural hair gradation:1.2)"
+    negative_prompt: "BREAK (western:1.8), (caucasian:1.8), (european:1.8), (american:1.8), (foreign:1.8), (non-japanese:1.8), (mixed race:1.6), (western features:1.7), (pale skin:1.7), (white skin:1.7), (fair complexion:1.7), (light skin:1.6), BREAK (heavy makeup:1.7), (overdone makeup:1.7), (excessive makeup:1.7), (theatrical makeup:1.6), (stage makeup:1.6), (cakey makeup:1.6), (unnatural makeup:1.6), (garish makeup:1.6), (too dramatic makeup:1.6), (over-the-top styling:1.6), (artificial look:1.6), (fake appearance:1.6), BREAK (cute:1.6), (kawaii:1.6), (adorable:1.6), (sweet:1.6), (childish:1.6), (baby face:1.6), (round face:1.5), (innocent:1.6), (pure:1.6), (modest:1.6), (conservative:1.5), (seiso:1.6), (good girl:1.6), BREAK (dark hair only:1.4), (black hair only:1.4), (natural hair color only:1.4), (boring hair color:1.4), (flat hair:1.4), (limp hair:1.4), BREAK (rough skin:1.4), (textured skin:1.4), (grainy skin:1.4), (bumpy skin:1.4), (uneven skin:1.4), (patchy tan:1.4), (dull skin:1.3), (matte skin:1.3), BREAK (plain makeup:1.4), (natural makeup only:1.4), (minimal makeup:1.4), (subtle makeup only:1.3), (understated look:1.3)"
+    age_range: [19, 19]
+    random_elements: [
+        # "hairstyles",
+        # "hairqualities",
+        # "haircolors",
+        "cloths",
+        "facial_features",
+        "breast_size",
+        "Sexual_expressions",
+        "background",
+        "poses",
+      ]
+    lora_settings: # ← 追加
+      - lora_id: "gal"
+        strength_range: [0.5, 0.6]
+      - lora_id: "japanese_girl_v1.1"
+        strength_range: [0.6, 0.7]
+      - lora_id: "RealVisXL_V5.0_fp16"
+        strength_range: [0.1, 0.2]
+      - lora_id: "add-detail-xl"
+        strength_range: [0.2, 0.3]
+      - lora_id: "RealitiesEdgeXLLIGHTNING_TURBOV7"
+        strength_range: [0.3, 0.4]
+      - lora_id: "DetailedEyes_XL"
+        strength_range: [0.3, 0.4]
+      # - lora_id: "RealisticSkinTexturestyleXLDetailedSkin"
+      #   strength_range: [0.5, 0.7]
+      - lora_id: "gyaru_girl_v1-12"
+        strength_range: [0.3, 0.4]
+
+    # 黒ギャルから移植
+  - name: "gyal_erotic"
+    model_name: "yayoiMix_v25.safetensors [ca28aa4a44]"
+    prompt: "BREAK (1 beautiful and sexy Japanese gyaru:1.7), (stunning japanese reiwa gal:1.6), (gorgeous asian gyaru girl:1.5), (mature beautiful japanese woman:1.5), (sophisticated japanese beauty:1.4), (glamorous japanese woman:1.5), (sexy japanese older sister type:1.5), (seductive japanese big sister energy:1.5), (dangerous japanese beauty:1.5), (predatory japanese appeal:1.5), (carnivorous japanese female:1.5), (sexually aggressive japanese beauty:1.5), (small japanese face:1.3), (refined japanese facial features:1.4), (modern japanese facial features:1.2), (contemporary japanese beauty:1.2), (japanese gyaru facial structure:1.2), (sophisticated japanese features:1.2), (beautiful japanese bone structure:1.2), (japanese gyaru culture:1.5), (reiwa era japanese gal:1.4), (modern japanese gyaru:1.5), (glamorous japanese base makeup:1.3), (professional japanese contouring:1.2), (dramatic big almond eye shape:1.5), (japanese cosmetic surgery eyes:1.5), (large striking japanese eyes:1.5), (bold black eyeliner:1.3), (shimmery eyeshadow:1.3), (metallic under-eye highlight:1.3), (dramatic upper lashes:1.4), (defined lower lashes:1.2), (sculpted bold brows:1.3), (glossy gradient lips:1.3), (high-shine lip gloss:1.2), (reiwa glamorous makeup:1.4), (modern japanese glam trend:1.3), (sophisticated glittery makeup:1.3), (gyaru sparkle and shine:1.4), (bling bling aesthetic:1.3), (glamorous glittery finish:1.3), (overwhelming sexual magnetism:1.8), (irresistible erotic charisma:1.7), (dangerous sexual allure:1.7), (predatory seductive power:1.7), (carnivorous female energy:1.6), (sexually dominant japanese attitude:1.6), (vulgar provocative attitude:1.9), (dirty minded japanese gal:1.8), (sexually aggressive japanese attitude:1.7), (low moral japanese standards:2.0), (promiscuous japanese behavior:1.8), (shameless japanese seductive gaze:1.8), (lewd japanese provocative smile:1.7), (predatory sexual look:1.6), (extremely provocative japanese expression:1.7), (slutty japanese inviting stare:1.8), (indecent japanese behavior:1.7), (morally loose japanese girl:1.8), (sexually available japanese:1.7), (easy japanese girl:1.7), (sexually liberated japanese:1.7), (no sexual inhibitions:1.6), (morally questionable japanese:1.7), (bad girl japanese attitude:1.6), (trashy japanese beauty:1.6), (vulgar japanese charm:1.7), (sexually forward japanese:1.6), (immoral japanese attitude:1.7), (indecent japanese behavior:1.7), (lascivious japanese appeal:1.6), (obscene japanese charm:1.6), (erotic japanese magnetism:1.7), (seductive japanese wickedness:1.6), (under-eye tear bag:1.2), (natural eye bag highlight:1.2), (subtle emphasized eye bags:1.2), (glamorous japanese eyelashes:1.4), (overwhelming sexual presence:1.7), (japanese sexually charged atmosphere:1.7), (japanese vulgar sensual vibe:1.7), (playful japanese vulgar gyaru:1.8), (glamorous japanese trashy beauty:1.7), (loose japanese sexual morals:2.0), (japanese sense of naughtiness:1.6), (clearly sexually inviting japanese gaze:1.8), (intense japanese slutty sex appeal:1.9), (lascivious japanese vulgar charm:1.8), (slutty japanese confident attitude:1.8), (bad girl street style:1.7), (generous cleavage reveal:1.4), (playful trashy gyaru vibe:1.9), (natural high nose bridge:1.2), (refined japanese nose:1.2), (subtle cosmetic surgery nose:1.1)"
+    negative_prompt: "BREAK (western porn star:1.8), (american porn actress:1.8), (european adult model:1.8), (foreign adult actress:1.7), (innocent:2.0), (pure:2.0), (modest:2.0), (shy:1.9), (reserved:1.9), (demure:1.9), (ladylike:1.9), (seiso:2.0), (conservative:1.9), (proper:1.9), (polite:1.8), (serious expression:1.8), (stern look:1.8), (wholesome:1.8), (tasteful:1.8), (cultured:1.8), (virtuous:1.9), (moral:1.9), (decent:1.8), (overly refined:1.7), (overly elegant:1.7), (overly sophisticated:1.7), (too classy:1.7), (childish expression:1.9), (baby face:1.9), (cute child-like:1.9), (kawaii child:1.8), (innocent child:1.8), (young girl:1.8), (teenage girl:1.7), (school girl:1.7), (little girl:1.9), (cute smile:1.9), (innocent smile:1.9), (sweet smile:1.9), (adorable expression:1.8), (precious look:1.8), (angelic face:1.9), (sweet innocent girl:2.0), (gentle expression:1.7), (soft expression:1.7), (tender look:1.7), (plain makeup:1.6), (natural makeup:1.6), (minimal makeup:1.6), (subtle makeup:1.5), (understated makeup:1.5), (western features:1.8), (foreign appearance:1.8), (non-japanese:1.8), (caucasian:1.8), (european features:1.8), (mixed race:1.7), (half japanese:1.7), (american features:1.8), (western beauty standards:1.7), (international beauty:1.6), (global beauty standard:1.6), (closed mouth:1.6), (serious lips:1.6), (formal pose:1.6), (conservative clothing:1.7), (good girl:2.0), (nice girl:1.9), (well-behaved:1.8), (respectable girl:1.8), (proper behavior:1.8), (moral behavior:1.8), (elegant lady:1.7), (refined woman:1.7), (sophisticated lady:1.7), (classy woman:1.7), (dignified:1.7), (graceful:1.7)"
+    age_range: [20, 26]
+    random_elements: [
+        # "hairstyles",
+        # "hairqualities",
+        "haircolors",
+        "cloths",
+        "facial_features",
+        "breast_size",
+        "Sexual_expressions",
+        "background",
+        "poses",
+      ]
+    lora_settings:
+      - lora_id: "japanese_girl_v1.1"
+        strength_range: [0.6, 0.8]
+      - lora_id: "RealVisXL_V5.0_fp16"
+        strength_range: [0.6, 0.7]
+      - lora_id: "add-detail-xl"
+        strength_range: [0.35, 0.4]
+      - lora_id: "RealitiesEdgeXLLIGHTNING_TURBOV7"
+        strength_range: [0.6, 0.8]
+      - lora_id: "DetailedEyes_XL"
+        strength_range: [0.4, 0.5]
+      # - lora_id: "gyaru face"
+      #   strength_range: [0.5, 0.6]
+      # - lora_id: "ayame_LoRA_v20"
+      #   strength_range: [0.1, 0.1]
+
+  - name: "gyal_natural"
+    model_name:
+      "yayoiMix_v25.safetensors [ca28aa4a44]"
+      # エロギャルから移植したプロンプト
+    prompt: "BREAK (1 beautiful Japanese gyaru:1.7), (stunningly sexy Japanese gal:1.6), (stunning japanese reiwa gal:1.6), (gorgeous asian gyaru girl:1.5), (mature beautiful japanese woman:1.5), (sexy japanese older sister type:1.4), (elegant japanese beauty:1.4), (sophisticated japanese erotic appeal:1.4), (alluring japanese mature charm:1.3), (seductive japanese big sister energy:1.4), (small japanese face:1.3), (refined japanese facial features:1.4), (natural japanese beauty standards:1.3), (modern japanese facial features:1.2), (contemporary japanese beauty:1.2), (japanese gyaru facial structure:1.2), (sophisticated japanese features:1.2), (beautiful japanese bone structure:1.2), (japanese gyaru culture:1.5), (reiwa era japanese gal:1.4), (modern japanese gyaru:1.5), (natural japanese base makeup:1.3), (subtle japanese contouring:1.1), (natural almond eye shape:1.2), (japanese cosmetic surgery eyes:1.2), (large natural japanese eyes:1.3), (soft black eyeliner:1.2), (natural brown eyeshadow:1.2), (subtle under-eye highlight:1.2), (natural upper lashes:1.3), (feathery lower lashes:1.1), (natural soft brows:1.2), (natural gradient lips:1.2), (subtle lip gloss:1.1), (reiwa makeup with nuance:1.3), (modern japanese makeup trend:1.3), (subtle makeup sophistication:1.3), (intense sexual magnetism:1.6), (overwhelming erotic charisma:1.7), (dangerous sexual allure:1.5), (irresistible seductive power:1.5), (vulgar provocative attitude:1.7), (dirty minded japanese gal:1.6), (sexually aggressive japanese attitude:1.5), (low moral japanese standards:1.8), (promiscuous japanese behavior:1.6), (shameless japanese seductive gaze:1.6), (predatory sexual look:1.4), (carnivorous female energy:1.4), (sexually dominant attitude:1.4), (extremely provocative japanese expression:1.5), (slutty japanese inviting stare:1.6), (indecent japanese behavior:1.5), (morally loose japanese girl:1.6), (sexually available japanese:1.5), (easy japanese girl:1.5), (under-eye tear bag:1.2), (natural eye bag highlight:1.2), (subtle emphasized eye bags:1.2), (natural japanese eyelashes:1.3), (overwhelming sexual presence:1.5), (japanese sexually charged atmosphere:1.5), (japanese vulgar sensual vibe:1.5), (playful japanese vulgar gyaru:1.6), (glamorous japanese trashy beauty:1.5), (loose japanese sexual morals:1.8), (japanese sense of naughtiness:1.4), (clearly sexually inviting japanese gaze:1.6), (intense japanese slutty sex appeal:1.7), (lascivious japanese vulgar charm:1.6), (slutty japanese confident attitude:1.6), (bad girl street style:1.5), (generous cleavage reveal:1.4), (playful trashy gyaru vibe:1.7), (sexually liberated japanese:1.6), (no sexual inhibitions:1.4), (morally questionable japanese:1.5), (natural high nose bridge:1.2), (refined japanese nose:1.2), (subtle cosmetic surgery nose:1.1), (erotic:1.4), (obscene:1.5)"
+
+    # エロギャルから移植したネガティブプロンプト
+    negative_prompt: "BREAK (western porn star:1.8), (american porn actress:1.8), (european adult model:1.8), (foreign adult actress:1.7), (heavy makeup:1.6), (overdone makeup:1.6), (thick heavy eyeliner:1.6), (dramatic makeup:1.5), (stage makeup:1.5), (theatrical makeup:1.5), (western makeup style:1.6), (american makeup trend:1.5), (european makeup:1.5), (innocent:1.8), (pure:1.8), (modest:1.8), (shy:1.7), (reserved:1.7), (demure:1.7), (ladylike:1.7), (seiso:1.8), (conservative:1.7), (proper:1.7), (polite:1.6), (serious expression:1.6), (stern look:1.6), (wholesome:1.6), (tasteful:1.6), (cultured:1.6), (virtuous:1.7), (moral:1.7), (decent:1.6), (overly refined:1.6), (overly elegant:1.6), (overly sophisticated:1.6), (too classy:1.6), (childish expression:1.8), (baby face:1.8), (cute child-like:1.8), (kawaii child:1.7), (innocent child:1.7), (young girl:1.7), (teenage girl:1.6), (school girl:1.6), (little girl:1.8), (western features:1.8), (foreign appearance:1.8), (non-japanese:1.8), (caucasian:1.8), (european features:1.8), (mixed race:1.7), (half japanese:1.7), (american features:1.8), (western beauty standards:1.7), (international beauty:1.6), (global beauty standard:1.6), (closed mouth:1.5), (serious lips:1.5), (formal pose:1.5), (conservative clothing:1.6), (good girl:1.8), (nice girl:1.7), (sweet innocent girl:1.8), (well-behaved:1.6), (respectable girl:1.6), (proper behavior:1.6), (moral behavior:1.6), (cute smile:1.6), (innocent smile:1.6), (sweet smile:1.6), (gentle expression:1.5), (soft expression:1.5)"
+    age_range: [19, 23]
+    random_elements: [
+        # "hairstyles",
+        # "hairqualities",
+        # "haircolors",
+        "cloths",
+        "facial_features",
+        "breast_size",
+        "Sexual_expressions",
+        "background",
+        "poses",
+      ]
+    lora_settings:
+      # 元のLoRA
+      # - lora_id: "japanese_girl_v1.1"
+      #   strength_range: [0.6, 0.65]
+      # - lora_id: "RealVisXL_V5.0_fp16"
+      #   strength_range: [0.1, 0.2]
+      # - lora_id: "add-detail-xl"
+      #   strength_range: [0.2, 0.3]
+      # - lora_id: "RealitiesEdgeXLLIGHTNING_TURBOV7"
+      #   strength_range: [0.1, 0.2]
+      # - lora_id: "DetailedEyes_XL"
+      #   strength_range: [0.4, 0.5]
+      # エロギャルから移植したLoRA
+      - lora_id: "japanese_girl_v1.1"
+        strength_range: [0.8, 0.9]
+      - lora_id: "RealVisXL_V5.0_fp16"
+        strength_range: [0.1, 0.3]
+      - lora_id: "add-detail-xl"
+        strength_range: [0.3, 0.4]
+      - lora_id: "RealitiesEdgeXLLIGHTNING_TURBOV7"
+        strength_range: [0.3, 0.4]
+      - lora_id: "DetailedEyes_XL"
+        strength_range: [0.3, 0.4]
+
+    # 未設定(今はNormalと一緒)
+  - name: "seiso"
+    model_name: "yayoiMix_v25.safetensors [ca28aa4a44]"
+    prompt: "BREAK (1 beautiful Japanese gyaru:1.4), (modern reiwa gyaru:1.3), (natural japanese beauty:1.3), (small face:1.2), (cute facial features:1.2), (friendly smile:1.2), (approachable expression:1.2), (fair porcelain skin:1.2), (realistic skin texture:1.2), (natural dewy finish:1.2), (enhanced eye makeup:1.3), (defined thin eyeliner:1.3), (natural long eyelashes:1.3), (inner corner highlight:1.2), (tear bag emphasis:1.2), (white shimmer under eyes:1.2), (trendy eyeshadow:1.2), (well-shaped eyebrows:1.1), (natural lips:1.2), (bright sparkling eyes:1.2), (youthful charm:1.2), (casual confidence:1.2), (contemporary japanese girl:1.3), (instagram worthy:1.2), (natural kawaii:1.2), (reiwa era beauty:1.2), (gyaru eye makeup:1.2)"
+    negative_prompt: "BREAK plain makeup, no makeup, natural makeup, tanned skin, dark skin, conservative style, minimal jewelry, simple hair, natural hair color, outdated gyaru style, old-fashioned makeup, (airbrushed skin:1.3), (glossy plastic skin:1.3), (overly smooth skin:1.3), (artificial skin texture:1.2), (photoshop skin:1.2), flat facial features, childish expression, baby face, mature woman, sophisticated lady, serious expression, stern look, business woman, professional look, overly adult, (western features:1.4), (foreign appearance:1.4), (non-japanese:1.4), (caucasian:1.4), (european features:1.4), (thick heavy eyeliner:1.3), (overdone makeup:1.3), (artificial beauty:1.3), (doll-like:1.3), (mannequin-like:1.3), (vintage gyaru:1.3), (old fashioned gyaru:1.3)"
+    age_range: [19, 23]
+    random_elements: [
+        "hairstyles",
+        # "hairqualities",
+        "haircolors",
+        "cloths",
+        "facial_features",
+        "breast_size",
+        "Sexual_expressions",
+        "background",
+        "poses",
+      ]
+    lora_settings: # ← 追加
+      - lora_id: "SkimMilk"
+        strength_range: [0.65, 0.75]
+      - lora_id: "japanese_girl_v1.1"
+        strength_range: [0.4, 0.5]
+      - lora_id: "RealVisXL_V5.0_fp16"
+        strength_range: [0.5, 0.6]
+      - lora_id: "add-detail-xl"
+        strength_range: [0.3, 0.4]
+      - lora_id: "RealitiesEdgeXLLIGHTNING_TURBOV7"
+        strength_range: [0.2, 0.3]
+      - lora_id: "DetailedEyes_XL"
+        strength_range: [0.2, 0.3]
+
+    # もはや不要
+  - name: "teen"
+    model_name: "xxmix9realisticsdxl_v10.safetensors [a94255c529]"
+    prompt: "BREAK (1 cute japanese girl:1.5), youthful innocent appearance, kawaii aesthetic, natural light makeup, subtle lip gloss, bright eager eyes, slightly tilted head, innocent demeanor, pure-hearted aura, neat hairstyle appropriate for school, clean short fingernails, minimal or no jewelry except small earrings, fresh-faced appearance, slightly flushed cheeks from physical education"
+    negative_prompt: "adult-looking, revealing clothing, heavy makeup, sexualized pose, cigarettes, alcohol, tattoos, piercings except small earrings, dark gothic style, provocative expressions, mature themes, inappropriate school setting, overly sophisticated appearance"
+    age_range: [18, 20] # 18歳以上に修正
+    random_elements: ["hairstyles", "hairqualities", "haircolors", "cloths"]
+    lora_settings: # ← 追加
+      - lora_id: "RealVisXL_V5.0_fp16"
+        strength_range: [0.6, 1.0]
+      - lora_id: "Japanese-doll-likeness"
+        strength_range: [0.4, 0.8]
