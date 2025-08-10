@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-HybridBijoRegisterV9 - メイン登録システム（完全版）
-リファクタリング前の全機能を再現
+HybridBijoRegisterV9 - メイン登録システム（完全版 + BedrockManager対応版）
+リファクタリング前の全機能を再現 + Bedrockコメント生成をBedrockManagerに委譲
 """
 
 import os
@@ -28,11 +28,19 @@ from ..uploader.s3_uploader import S3Uploader
 from ..uploader.dynamodb_uploader import DynamoDBUploader
 from ..processor.batch_processor import BatchProcessor
 
+# BedrockManagerのインポート（新規追加）
+try:
+    from ..aws.bedrock_manager import BedrockManager
+    BEDROCK_MANAGER_AVAILABLE = True
+except ImportError:
+    BEDROCK_MANAGER_AVAILABLE = False
+
 # JST
 JST = timezone(timedelta(hours=9))
 
 class ProcessTimer:
     """処理時間計測"""
+    
     def __init__(self, logger):
         self.logger = logger
         self.start_time = None
@@ -74,18 +82,21 @@ class ProcessTimer:
             return f"{hours}時間{minutes}分{secs:.1f}秒"
 
 class HybridBijoRegisterV9:
-    """ローカル画像AWS登録ツール（完全版）"""
-    
+    """ローカル画像AWS登録ツール（完全版 + BedrockManager対応版）"""
+
     def __init__(self, config_path="config/hybrid_bijo_register_config.yaml"):
         self.logger = ColorLogger()
-        self.logger.print_stage("🚀 Hybrid Bijo Register v9 (DynamoDB Float型エラー修正版) 初期化中...")
-        
+        self.logger.print_stage("🚀 Hybrid Bijo Register v9 (BedrockManager対応版) 初期化中...")
+
         # 設定読み込み
         self.config = self.load_config(config_path)
-        
+
         # AWS クライアント初期化
         self.setup_aws_clients()
-        
+
+        # BedrockManager初期化（新規追加）
+        self.setup_bedrock_manager()
+
         # 統計情報
         self.stats = {
             'total_found': 0,
@@ -94,8 +105,8 @@ class HybridBijoRegisterV9:
             'errors': 0,
             'duplicates': 0
         }
-        
-        self.logger.print_success("✅ 初期化完了（DynamoDB Float型エラー修正適用）")
+
+        self.logger.print_success("✅ 初期化完了（BedrockManager対応版）")
 
     def load_config(self, config_path: str):
         """設定ファイル読み込み"""
@@ -114,7 +125,6 @@ class HybridBijoRegisterV9:
     def setup_aws_clients(self):
         """AWSクライアント初期化"""
         aws_config = self.config['aws']
-        
         try:
             self.s3_client = boto3.client('s3', region_name=aws_config['region'])
             self.dynamodb = boto3.resource('dynamodb', region_name=aws_config['region'])
@@ -129,15 +139,77 @@ class HybridBijoRegisterV9:
             self.logger.print_error(f"❌ AWS接続エラー: {e}")
             raise
 
-    def generate_bedrock_comments(self, image_metadata):
-        """Bedrockコメント生成"""
+    def setup_bedrock_manager(self):
+        """BedrockManager初期化（新機能）"""
         if not self.config['bedrock']['enabled']:
-            self.logger.print_status("Bedrock無効のためコメント生成をスキップ")
-            return {}
+            self.logger.print_status("📋 Bedrock機能無効のためBedrockManagerをスキップ")
+            self.bedrock_manager = None
+            return
+
+        if not BEDROCK_MANAGER_AVAILABLE:
+            self.logger.print_warning("⚠️ BedrockManagerが利用できません。従来方式を使用します。")
+            self.bedrock_manager = None
+            return
 
         try:
-            self.logger.print_status("🤖 Bedrockコメント生成中...")
+            self.bedrock_manager = BedrockManager(
+                lambda_client=self.lambda_client,
+                logger=self.logger,
+                config=self.config
+            )
+            self.logger.print_success("✅ BedrockManager初期化完了")
+        except Exception as e:
+            self.logger.print_warning(f"⚠️ BedrockManager初期化エラー、従来方式を使用: {e}")
+            self.bedrock_manager = None
 
+    def generate_bedrock_comments(self, image_metadata):
+        """Bedrockコメント生成（BedrockManagerに委譲 or 従来方式）"""
+        if not self.config['bedrock']['enabled']:
+            self.logger.print_status("📋 Bedrock無効のためコメント生成をスキップ")
+            return {}
+
+        # BedrockManagerを使用（推奨方式）
+        if self.bedrock_manager:
+            try:
+                self.logger.print_status("🤖 BedrockManager経由でコメント生成中...")
+                
+                # BedrockManager用メタデータ準備
+                bedrock_metadata = {
+                    'genre': image_metadata.get('genre', ''),
+                    'style': 'general',
+                    'imageId': image_metadata.get('imageId', ''),
+                    'prompt': image_metadata.get('sdParams', {}).get('sdxl_unified', {}).get('prompt', ''),
+                    'pose_mode': image_metadata.get('sdParams', {}).get('base', {}).get('pose_mode', 'detection')
+                }
+                
+                # API制限対策
+                time.sleep(1)
+                
+                # BedrockManagerに委譲
+                comments = self.bedrock_manager.generate_all_timeslot_comments(bedrock_metadata)
+                
+                if comments:
+                    self.logger.print_success(f"🤖 BedrockManager経由でコメント生成完了: {len(comments)}件")
+                    time.sleep(2)
+                    return comments
+                else:
+                    self.logger.print_warning("⚠️ BedrockManagerでコメント生成失敗、従来方式を試行")
+                    # フォールバック: 従来方式を実行
+                    return self._generate_bedrock_comments_legacy(image_metadata)
+                    
+            except Exception as e:
+                self.logger.print_warning(f"⚠️ BedrockManagerエラー、従来方式を使用: {e}")
+                # フォールバック: 従来方式を実行
+                return self._generate_bedrock_comments_legacy(image_metadata)
+        else:
+            # 従来方式を実行
+            return self._generate_bedrock_comments_legacy(image_metadata)
+
+    def _generate_bedrock_comments_legacy(self, image_metadata):
+        """従来のBedrockコメント生成方式（フォールバック用）"""
+        try:
+            self.logger.print_status("🤖 従来方式でBedrockコメント生成中...")
+            
             # Bedrock用メタデータ準備
             bedrock_metadata = {
                 'genre': image_metadata.get('genre', ''),
@@ -161,14 +233,14 @@ class HybridBijoRegisterV9:
 
             result = json.loads(response['Payload'].read())
             body = json.loads(result['body'])
-
+            
             if body.get('success'):
                 comments = body.get('all_comments', {})
-                self.logger.print_success(f"🤖 Bedrockコメント生成完了: {len(comments)}件")
+                self.logger.print_success(f"🤖 従来方式でBedrockコメント生成完了: {len(comments)}件")
                 time.sleep(2)
                 return comments
             else:
-                self.logger.print_warning(f"⚠️ Bedrockコメント生成失敗: {body.get('error')}")
+                self.logger.print_warning(f"⚠️ 従来方式でBedrockコメント生成失敗: {body.get('error')}")
                 return {}
 
         except ClientError as e:
@@ -179,11 +251,10 @@ class HybridBijoRegisterV9:
                 time.sleep(10)
             return {}
         except Exception as e:
-            self.logger.print_warning(f"⚠️ Bedrockコメント生成エラー: {e}")
+            self.logger.print_warning(f"⚠️ 従来方式Bedrockコメント生成エラー: {e}")
             return {}
-
     def process_single_pair(self, image_path: str, metadata_path: str) -> bool:
-        """単一ペア処理（完全版）"""
+        """単一ペア処理（完全版 + BedrockManager対応）"""
         try:
             # 1. メタデータ読み込み・検証
             scanner = FileScanner(self.logger)
@@ -197,13 +268,13 @@ class HybridBijoRegisterV9:
             type_conv = TypeConverter(self.logger)
             aws_metadata = converter.convert_metadata_for_aws(local_metadata)
             aws_metadata = type_conv.convert_for_dynamodb(aws_metadata)
-            
+
             # S3バケット名を設定に合わせて更新
             aws_metadata['s3Bucket'] = self.config['aws']['s3_bucket']
-
+            
             image_id = aws_metadata['imageId']
             s3_key = aws_metadata['s3Key']
-
+            
             self.logger.print_status(f"🔄 処理中: {image_id}")
 
             # 3. DynamoDB登録（重複チェック付き）
@@ -219,7 +290,7 @@ class HybridBijoRegisterV9:
             except:
                 pass
 
-            # Bedrockコメント生成
+            # Bedrockコメント生成（BedrockManager対応）
             bedrock_comments = self.generate_bedrock_comments(aws_metadata)
             if bedrock_comments:
                 aws_metadata['preGeneratedComments'] = bedrock_comments
@@ -238,7 +309,6 @@ class HybridBijoRegisterV9:
                     self.logger.print_status(f"🧹 DynamoDB削除完了: {image_id}")
                 except Exception as cleanup_error:
                     self.logger.print_warning(f"⚠️ DynamoDB削除エラー: {cleanup_error}")
-                
                 self.stats['errors'] += 1
                 return False
 
@@ -256,13 +326,13 @@ class HybridBijoRegisterV9:
             return False
 
     def process_batch(self, genre: str) -> int:
-        """バッチ処理（完全版）"""
+        """バッチ処理（完全版 + BedrockManager対応）"""
         directory_path = self.config['batch_directories'].get(genre)
         if not directory_path:
             self.logger.print_error(f"❌ ジャンル '{genre}' のディレクトリが設定されていません")
             return 0
 
-        self.logger.print_stage(f"=== {genre} バッチ処理開始 (DynamoDB Float型エラー修正版) ===")
+        self.logger.print_stage(f"=== {genre} バッチ処理開始 (BedrockManager対応版) ===")
 
         # 統計情報リセット
         self.stats = {
@@ -276,12 +346,13 @@ class HybridBijoRegisterV9:
         # ファイルペアスキャン
         scanner = FileScanner(self.logger)
         pairs = scanner.scan_directory_for_pairs(directory_path)
+        
         if not pairs:
             self.logger.print_warning(f"⚠️ 処理対象ファイルがありません: {directory_path}")
             return 0
 
         self.stats['total_found'] = len(pairs)
-
+        
         timer = ProcessTimer(self.logger)
         timer.start(f"{genre} バッチ処理")
 
@@ -290,6 +361,7 @@ class HybridBijoRegisterV9:
             self.logger.print_status(f"\n--- {i}/{len(pairs)} ---")
             
             success = self.process_single_pair(image_path, metadata_path)
+            
             if not success and self.config['processing']['skip_on_individual_errors']:
                 self.logger.print_status("⏭️ エラーをスキップして継続")
                 continue
@@ -300,56 +372,28 @@ class HybridBijoRegisterV9:
 
         timer.end_and_report(self.stats['success'])
         self.print_final_summary()
-
         return self.stats['success']
 
     def print_final_summary(self):
-        """最終サマリー表示"""
-        self.logger.print_stage("=== 処理結果サマリー (DynamoDB Float型エラー修正版) ===")
+        """最終サマリー表示（BedrockManager対応版）"""
+        self.logger.print_stage("=== 処理結果サマリー (BedrockManager対応版) ===")
+        
         self.logger.print_status(f"📊 検出ファイル: {self.stats['total_found']}ペア")
         self.logger.print_success(f"✅ 成功: {self.stats['success']}件")
         self.logger.print_warning(f"⚠️ 重複スキップ: {self.stats['duplicates']}件")
         self.logger.print_error(f"❌ エラー: {self.stats['errors']}件")
-
+        
         if self.stats['total_found'] > 0:
             success_rate = (self.stats['success'] / self.stats['total_found']) * 100
             self.logger.print_status(f"📈 成功率: {success_rate:.1f}%")
 
         if self.stats['success'] > 0:
             self.logger.print_success("🎉 登録されたデータは正常なDynamoDB形式で保存されています")
-
-    def show_menu_and_process(self):
-        """メニュー表示・処理実行（完全版）"""
-        self.logger.print_stage("🚀 Hybrid Bijo Register v9 (DynamoDB Float型エラー修正版)")
-        
-        available_genres = list(self.config['batch_directories'].keys())
-        
-        while True:
-            print("\n" + "="*60)
-            print("📋 ジャンル選択メニュー (DynamoDB Float型エラー修正版)")
-            print("="*60)
-            for i, genre in enumerate(available_genres, 1):
-                print(f"{i}. {genre}")
-            print(f"{len(available_genres) + 1}. 終了")
-            print("="*60)
-            print("🔧 修正内容: Float型をDecimal型に自動変換")
-            print("✅ DynamoDB互換性完全対応")
-            print("="*60)
-
-            try:
-                choice = input("選択 (1-{}): ".format(len(available_genres) + 1)).strip()
-                choice_num = int(choice)
-
-                if 1 <= choice_num <= len(available_genres):
-                    selected_genre = available_genres[choice_num - 1]
-                    self.process_batch(selected_genre)
-                elif choice_num == len(available_genres) + 1:
-                    break
-                else:
-                    print("❌ 無効な選択です")
-
-            except ValueError:
-                print("❌ 数値を入力してください")
-            except KeyboardInterrupt:
-                print("\n🛑 処理が中断されました")
-                break
+            
+        # BedrockManager使用状況の表示
+        if self.bedrock_manager:
+            self.logger.print_success("🤖 BedrockManagerを使用してコメント生成が実行されました")
+        elif self.config['bedrock']['enabled']:
+            self.logger.print_warning("⚠️ BedrockManagerは利用できませんでしたが、従来方式でコメント生成が実行されました")
+        else:
+            self.logger.print_status("📋 Bedrock機能は無効です")

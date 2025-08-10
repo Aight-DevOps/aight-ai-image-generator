@@ -79,7 +79,11 @@ class ImageSaver:
             "commentGeneratedAt": response.get('commentGeneratedAt', ''),
             "s3Key": f"image-pool/{gen_type.name}/{image_id}.png",
             "imageState": "unprocessed",
-            "postingStage": "notposted"
+            "postingStage": "notposted",
+            # --- 追加: 11スロット対応フィールド ---
+            "suitableTimeSlots": response.get('suitableTimeSlots', []),
+            "recommendedTimeSlot": response.get('recommendedTimeSlot', 'general'),
+            "slotConfigVersion": response.get('slotConfigVersion', '')
         }
 
         meta_path = os.path.join(out_dir, f"{image_id}_metadata.json")
@@ -153,7 +157,11 @@ class ImageSaver:
             "imageState": "unprocessed",
             "postingStage": "notposted",
             "createdAt": now,
-            "suitableTimeSlots": self.config.get('default_suitable_slots', []),
+            # --- 追加: 11スロット対応フィールド ---
+            "suitableTimeSlots": response.get('suitableTimeSlots', self.config.get('default_suitable_slots', [])),
+            "recommendedTimeSlot": response.get('recommendedTimeSlot', 'general'),
+            "slotConfigVersion": response.get('slotConfigVersion', ''),
+            # --- 既存フィールド（元コード維持） ---
             "preGeneratedComments": response.get('comments', {}),
             "commentGeneratedAt": response.get('commentGeneratedAt', ''),
             "sdParams": {

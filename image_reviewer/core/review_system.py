@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-ImageReviewSystem - メイン検品システムクラス
-完全機能版（リファクタリング前機能復活）
+ImageReviewSystem - メイン検品システムクラス（11スロット対応版）
+完全機能版（リファクタリング前機能復活 + 11スロット対応）
 """
 
 import streamlit as st
@@ -14,10 +14,10 @@ import io
 import json
 import time
 import re
+import yaml
 from datetime import datetime, timedelta
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError, NoCredentialsError
-
 from common.logger import ColorLogger
 from common.aws_client import AWSClientManager
 
@@ -27,8 +27,8 @@ S3_BUCKET = 'aight-media-images'
 DYNAMODB_TABLE = 'AightMediaImageData'
 
 class ImageReviewSystem:
-    """検品システムメインクラス（完全機能版）"""
-    
+    """検品システムメインクラス（11スロット対応版）"""
+
     def __init__(self):
         """検品システム初期化"""
         try:
@@ -36,15 +36,95 @@ class ImageReviewSystem:
             self.dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
             self.table = self.dynamodb.Table(DYNAMODB_TABLE)
             self.connection_status = "✅ AWS接続成功"
+            
+            # ===============================================
+            # 11スロット対応：S3から時間帯設定を動的読み込み
+            # ===============================================
+            self.time_slots_config = self._load_time_slots_from_s3()
+            
         except NoCredentialsError:
             st.error("❌ AWS認証情報が設定されていません")
             self.connection_status = "❌ AWS接続失敗"
         except Exception as e:
             st.error(f"❌ AWS接続エラー: {e}")
             self.connection_status = "❌ AWS接続失敗"
-    
+
+    def _load_time_slots_from_s3(self):
+        """
+        S3から投稿スケジュール設定を読み込み、11スロット対応の時間帯設定を取得
+        
+        Returns:
+            dict: 時間帯スロット設定
+        """
+        try:
+            st.write("🔄 S3から11スロット設定を読み込み中...")
+            
+            # S3から posting_schedule.yaml を読み込み
+            response = self.s3_client.get_object(
+                Bucket=S3_BUCKET,
+                Key='config/posting_schedule.yaml'
+            )
+            config_content = response['Body'].read().decode('utf-8')
+            schedule_config = yaml.safe_load(config_content)
+            
+            # スロット情報を抽出してUI表示用に変換
+            slots = schedule_config.get('posting_schedule', {}).get('slots', {})
+            time_slots_config = {}
+            
+            for slot_name, slot_data in slots.items():
+                if slot_name == 'general':
+                    # generalスロットは時間制約なし
+                    time_slots_config[slot_name] = "一般時間帯（フォールバック用）"
+                else:
+                    # 時間帯情報を含む表示名を生成
+                    start_time = slot_data.get('start', '00:00')
+                    end_time = slot_data.get('end', '23:59')
+                    
+                    # スロット名の日本語化
+                    slot_labels = {
+                        'early_morning': '早朝',
+                        'morning': '朝',
+                        'late_morning': '午前中',
+                        'lunch': 'ランチ',
+                        'afternoon': '午後',
+                        'pre_evening': '夕方前',
+                        'evening': '夕方',
+                        'night': '夜',
+                        'late_night': '深夜',
+                        'mid_night': '真夜中'
+                    }
+                    
+                    japanese_name = slot_labels.get(slot_name, slot_name.replace('_', ' ').title())
+                    time_slots_config[slot_name] = f"{japanese_name} ({start_time}-{end_time})"
+            
+            # バージョン情報も取得
+            version = schedule_config.get('slot_metadata', {}).get('version', 'unknown')
+            total_slots = len(time_slots_config)
+            
+            st.success(f"✅ 11スロット設定読み込み完了 - v{version} ({total_slots}スロット)")
+            
+            return time_slots_config
+            
+        except Exception as e:
+            st.warning(f"⚠️ S3スロット設定読み込み失敗、フォールバック使用: {e}")
+            
+            # フォールバック：従来の7スロット設定
+            return {
+                "early_morning": "早朝 (05:00-07:59)",
+                "morning": "朝 (08:00-09:59)",
+                "late_morning": "午前中 (10:00-11:59)",
+                "lunch": "ランチ (12:00-13:59)",
+                "afternoon": "午後 (14:00-15:59)",
+                "pre_evening": "夕方前 (16:00-17:59)",
+                "evening": "夕方 (18:00-19:59)",
+                "night": "夜 (20:00-21:59)",
+                "late_night": "深夜 (22:00-23:59)",
+                "mid_night": "真夜中 (00:00-04:59)",
+                "general": "一般時間帯（フォールバック用）"
+            }
+
     def parse_dynamodb_attribute_value(self, value):
-        """DynamoDB AttributeValue形式を通常の値に変換"""
+        """DynamoDB AttributeValue形式を通常の値に変換（既存機能完全保持）"""
         if isinstance(value, dict):
             if 'S' in value:  # String
                 return value['S']
@@ -65,16 +145,15 @@ class ImageReviewSystem:
         return value
 
     def get_single_image_latest_data(self, image_id):
-        """個別画像の最新データをDynamoDBから取得"""
+        """個別画像の最新データをDynamoDBから取得（既存機能完全保持）"""
         try:
             st.write(f"🔄 画像 {image_id} の最新データを取得中...")
-            
             response = self.table.get_item(Key={'imageId': image_id})
             
             if 'Item' not in response:
                 st.warning(f"⚠️ 画像 {image_id} がDynamoDBで見つかりません")
                 return None
-            
+
             item = response['Item']
             
             # データ変換（最新データ用）
@@ -105,16 +184,16 @@ class ImageReviewSystem:
                 'sdParams': item.get('sdParams', {}),
                 'raw_item': item
             }
-            
+
             st.success(f"✅ 最新データ取得完了: {image_id}")
             return processed_item
-        
+
         except Exception as e:
             st.error(f"❌ 個別画像データ取得エラー: {e}")
             return None
 
     def load_images_efficiently(self, status_filter=None, genre_filter=None, highres_mode_filter=None, days_back=7):
-        """効率的な画像データ読み込み（GSI使用）"""
+        """効率的な画像データ読み込み（GSI使用）（既存機能完全保持）"""
         st.write("---")
         st.write("## 🔍 検索期間変更による画像検索実行")
         
@@ -225,7 +304,7 @@ class ImageReviewSystem:
             return []
 
     def get_image_from_s3(self, s3_key):
-        """S3から画像を取得"""
+        """S3から画像を取得（既存機能完全保持）"""
         try:
             response = self.s3_client.get_object(Bucket=S3_BUCKET, Key=s3_key)
             image_data = response['Body'].read()
@@ -235,9 +314,8 @@ class ImageReviewSystem:
             return None
 
     def extract_prompt_from_nested_structure(self, sd_params):
-        """ネストしたsdParams構造からプロンプトを抽出"""
+        """ネストしたsdParams構造からプロンプトを抽出（既存機能完全保持）"""
         prompts = {}
-        
         possible_sources = [
             ('direct_prompt', sd_params.get('prompt', '')),
             ('direct_PROMPT', sd_params.get('PROMPT', '')),
@@ -245,18 +323,17 @@ class ImageReviewSystem:
             ('base_prompt', self._extract_from_base_structure(sd_params)),
             ('generation_prompt', self._extract_from_generation_structure(sd_params))
         ]
-        
+
         for source_name, content in possible_sources:
             if content and isinstance(content, str) and len(content.strip()) > 0:
                 prompts[source_name] = content.strip()
-        
+
         return prompts
 
     def _extract_from_sdxl_unified(self, sd_params):
-        """sdxl_unified構造からプロンプトを抽出"""
+        """sdxl_unified構造からプロンプトを抽出（既存機能完全保持）"""
         try:
             sdxl_data = sd_params.get('sdxl_unified', {})
-            
             if isinstance(sdxl_data, dict) and 'M' in sdxl_data:
                 parsed_sdxl = self.parse_dynamodb_attribute_value(sdxl_data)
                 return parsed_sdxl.get('prompt', '')
@@ -264,14 +341,12 @@ class ImageReviewSystem:
                 return sdxl_data.get('prompt', '')
         except Exception as e:
             st.warning(f"sdxl_unified構造の解析エラー: {e}")
-        
         return ""
 
     def _extract_from_base_structure(self, sd_params):
-        """base構造からプロンプトを抽出"""
+        """base構造からプロンプトを抽出（既存機能完全保持）"""
         try:
             base_data = sd_params.get('base', {})
-            
             if isinstance(base_data, dict) and 'M' in base_data:
                 parsed_base = self.parse_dynamodb_attribute_value(base_data)
                 return parsed_base.get('prompt', '')
@@ -279,11 +354,10 @@ class ImageReviewSystem:
                 return base_data.get('prompt', '')
         except Exception as e:
             st.warning(f"base構造の解析エラー: {e}")
-        
         return ""
 
     def _extract_from_generation_structure(self, sd_params):
-        """generation構造からプロンプトを抽出"""
+        """generation構造からプロンプトを抽出（既存機能完全保持）"""
         try:
             for key in ['generation', 'params', 'config']:
                 if key in sd_params:
@@ -299,13 +373,11 @@ class ImageReviewSystem:
                             return prompt
         except Exception as e:
             st.warning(f"generation構造の解析エラー: {e}")
-        
         return ""
 
     def extract_negative_prompt_from_nested_structure(self, sd_params):
-        """ネガティブプロンプトを抽出"""
+        """ネガティブプロンプトを抽出（既存機能完全保持）"""
         negative_prompts = {}
-        
         try:
             sdxl_data = sd_params.get('sdxl_unified', {})
             if isinstance(sdxl_data, dict) and 'M' in sdxl_data:
@@ -315,41 +387,38 @@ class ImageReviewSystem:
                     negative_prompts['sdxl_unified'] = neg_prompt
         except Exception as e:
             st.warning(f"ネガティブプロンプト抽出エラー: {e}")
-        
+
         direct_neg = sd_params.get('negative_prompt', '') or sd_params.get('NEGATIVE_PROMPT', '')
         if direct_neg:
             negative_prompts['direct'] = direct_neg
-        
+
         return negative_prompts
 
     def extract_lora_from_prompt(self, prompt):
-        """プロンプトからLoRA情報を抽出"""
+        """プロンプトからLoRA情報を抽出（既存機能完全保持）"""
         if not prompt:
             return []
-        
+
         try:
             pattern = r'<lora:([^>]+?):([\d.]+)>'
             matches = re.findall(pattern, prompt)
-            
             lora_list = []
             for name, strength in matches:
                 clean_name = name.strip()
                 clean_strength = strength.strip()
-                
                 if clean_name and clean_strength:
                     try:
                         float(clean_strength)
                         lora_list.append((clean_name, clean_strength))
                     except ValueError:
                         continue
-            
             return lora_list
         except Exception as e:
             st.error(f"LoRA抽出エラー: {e}")
             return []
 
     def display_lora_info(self, sd_params, all_prompts):
-        """LoRA情報をテーブル形式で表示"""
+        """LoRA情報をテーブル形式で表示（既存機能完全保持）"""
         st.subheader("🔧 使用LoRA詳細")
         
         all_lora_matches = []
@@ -361,14 +430,13 @@ class ImageReviewSystem:
                 if lora_matches:
                     all_lora_matches.extend(lora_matches)
                     lora_sources.extend([source_name] * len(lora_matches))
-        
+
         if all_lora_matches:
             table_data = {
                 "LoRA名": [name for name, strength in all_lora_matches],
                 "強度": [strength for name, strength in all_lora_matches],
                 "取得元": lora_sources
             }
-            
             df = pd.DataFrame(table_data)
             st.dataframe(df, use_container_width=True, hide_index=True)
             st.write(f"**総LoRA数**: {len(all_lora_matches)}個")
@@ -376,9 +444,9 @@ class ImageReviewSystem:
             st.text("LoRA使用なし")
 
     def display_enhanced_image_metadata(self, image_data):
-        """拡張された画像メタデータの表示"""
+        """拡張された画像メタデータの表示（既存機能完全保持）"""
         st.subheader("📊 画像メタデータ")
-        
+
         # 基本情報
         st.write("**📅 基本情報**")
         created_at = image_data.get('created_at', '')
@@ -393,133 +461,129 @@ class ImageReviewSystem:
                 st.write(f"生成日時: {created_at}")
         
         st.write(f"ジャンル: {image_data.get('genre', 'unknown')}")
-        
+
         # 画像生成パラメータ
         sd_params = image_data.get('sdParams', {})
         if sd_params:
             st.write("**🎯 画像生成パラメータ**")
-            
             try:
                 sdxl_data = sd_params.get('sdxl_unified', {})
-                
                 if isinstance(sdxl_data, dict) and 'M' in sdxl_data:
                     parsed_sdxl = self.parse_dynamodb_attribute_value(sdxl_data)
-                    
                     steps = parsed_sdxl.get('steps', 'unknown')
                     cfg_scale = parsed_sdxl.get('cfg_scale', 'unknown')
                     sampler = parsed_sdxl.get('sampler', 'unknown')
                     width = parsed_sdxl.get('width', 'unknown')
                     height = parsed_sdxl.get('height', 'unknown')
-                    
                     st.write(f"ステップ数: {steps}")
                     st.write(f"CFG Scale: {cfg_scale}")
                     st.write(f"Sampler: {sampler}")
                     st.write(f"解像度: {width}x{height}")
-                
                 elif isinstance(sdxl_data, dict):
                     st.write(f"ステップ数: {sdxl_data.get('steps', 'unknown')}")
                     st.write(f"CFG Scale: {sdxl_data.get('cfg_scale', 'unknown')}")
                     st.write(f"Sampler: {sdxl_data.get('sampler', 'unknown')}")
                     st.write(f"解像度: {sdxl_data.get('width', 'unknown')}x{sdxl_data.get('height', 'unknown')}")
-                
                 else:
                     st.write(f"ステップ数: {sd_params.get('steps', 'unknown')}")
                     st.write(f"CFG Scale: {sd_params.get('cfg_scale', 'unknown')}")
                     st.write(f"Sampler: {sd_params.get('sampler', 'unknown')}")
-                
             except Exception as e:
                 st.warning(f"パラメータ抽出エラー: {e}")
                 st.write(f"ステップ数: {sd_params.get('steps', 'unknown')}")
                 st.write(f"CFG Scale: {sd_params.get('cfg_scale', 'unknown')}")
                 st.write(f"Sampler: {sd_params.get('sampler', 'unknown')}")
-            
-            all_prompts = self.extract_prompt_from_nested_structure(sd_params)
-            self.display_lora_info(sd_params, all_prompts)
-            
-            # プロンプト情報
-            if st.expander("📝 生成プロンプト詳細（全量表示・マルチソース対応）"):
-                if all_prompts:
-                    main_prompt = ""
-                    main_source = ""
-                    for source, content in all_prompts.items():
-                        if content and len(content) > len(main_prompt):
-                            main_prompt = content
-                            main_source = source
-                    
-                    if main_prompt:
-                        st.write(f"**メインプロンプト** (取得元: {main_source})")
-                        st.text_area(
-                            "プロンプト全量", 
-                            value=main_prompt, 
-                            height=200, 
-                            disabled=True,
-                            key="main_prompt_display"
-                        )
-                        st.write(f"**文字数**: {len(main_prompt)}文字")
-                        
-                        if len(all_prompts) > 1:
-                            st.write("**その他のプロンプトソース:**")
-                            for source, content in all_prompts.items():
-                                if content and content != main_prompt:
-                                    st.write(f"- {source}: {len(content)}文字")
-                    else:
-                        st.warning("プロンプトが見つかりません")
+
+        all_prompts = self.extract_prompt_from_nested_structure(sd_params)
+        self.display_lora_info(sd_params, all_prompts)
+
+        # プロンプト情報
+        if st.expander("📝 生成プロンプト詳細（全量表示・マルチソース対応）"):
+            if all_prompts:
+                main_prompt = ""
+                main_source = ""
+                for source, content in all_prompts.items():
+                    if content and len(content) > len(main_prompt):
+                        main_prompt = content
+                        main_source = source
+
+                if main_prompt:
+                    st.write(f"**メインプロンプト** (取得元: {main_source})")
+                    st.text_area(
+                        "プロンプト全量",
+                        value=main_prompt,
+                        height=200,
+                        disabled=True,
+                        key="main_prompt_display"
+                    )
+                    st.write(f"**文字数**: {len(main_prompt)}文字")
+
+                    if len(all_prompts) > 1:
+                        st.write("**その他のプロンプトソース:**")
+                        for source, content in all_prompts.items():
+                            if content and content != main_prompt:
+                                st.write(f"- {source}: {len(content)}文字")
                 else:
                     st.warning("プロンプトが見つかりません")
-                
-                # ネガティブプロンプト
-                all_negative_prompts = self.extract_negative_prompt_from_nested_structure(sd_params)
-                if all_negative_prompts:
-                    main_negative = ""
-                    main_neg_source = ""
-                    for source, content in all_negative_prompts.items():
-                        if content and len(content) > len(main_negative):
-                            main_negative = content
-                            main_neg_source = source
-                    
-                    if main_negative:
-                        st.write(f"**ネガティブプロンプト** (取得元: {main_neg_source})")
-                        st.text_area(
-                            "ネガティブプロンプト全量", 
-                            value=main_negative, 
-                            height=150, 
-                            disabled=True,
-                            key="main_negative_display"
-                        )
-                        st.write(f"**文字数**: {len(main_negative)}文字")
+            else:
+                st.warning("プロンプトが見つかりません")
+
+        # ネガティブプロンプト
+        all_negative_prompts = self.extract_negative_prompt_from_nested_structure(sd_params)
+        if all_negative_prompts:
+            main_negative = ""
+            main_neg_source = ""
+            for source, content in all_negative_prompts.items():
+                if content and len(content) > len(main_negative):
+                    main_negative = content
+                    main_neg_source = source
+
+            if main_negative:
+                st.write(f"**ネガティブプロンプト** (取得元: {main_neg_source})")
+                st.text_area(
+                    "ネガティブプロンプト全量",
+                    value=main_negative,
+                    height=150,
+                    disabled=True,
+                    key="main_negative_display"
+                )
+                st.write(f"**文字数**: {len(main_negative)}文字")
 
     def render_integrated_comment_timeslot_area(self, image_data):
-        """統合された時間帯別コメント・スロット設定エリア"""
+        """
+        統合された時間帯別コメント・スロット設定エリア（11スロット対応版）
+        
+        Returns:
+            tuple: (updated_comments, updated_suitable_slots, updated_recommended_slot)
+        """
         if 'reset_trigger' not in st.session_state:
             st.session_state.reset_trigger = 0
 
-        with st.expander("🕐 時間帯別コメント・スロット設定", expanded=False):
-            time_slots = {
-                "early_morning": "早朝 (6:00-8:00)",
-                "morning": "朝 (8:00-9:00)",
-                "lunch": "昼 (11:00-13:00)",
-                "evening": "夕方 (13:00-21:00)",
-                "night": "夜 (21:00-22:30)",
-                "mid_night": "深夜 (22:30-00:59)",
-                "general": "一般時間帯"
-            }
-
+        with st.expander("🕐 時間帯別コメント・スロット設定（11スロット対応）", expanded=False):
+            # ===============================================
+            # 11スロット対応：S3から動的読み込みした設定を使用
+            # ===============================================
+            time_slots = self.time_slots_config
+            
+            # S3読み込み状況を表示
+            total_slots = len(time_slots)
+            st.info(f"📋 現在の設定: {total_slots}スロット（S3動的読み込み）")
+            
             pre_comments = image_data.get('preGeneratedComments', {})
             suitable_slots = image_data.get('suitableTimeSlots', [])
             recommended_slot = image_data.get('recommendedTimeSlot', 'general')
 
             current_image_id = image_data.get('imageId', '')
-            
-            if ('current_editing_image_id' not in st.session_state or 
+
+            if ('current_editing_image_id' not in st.session_state or
                 st.session_state.current_editing_image_id != current_image_id):
-                
                 st.session_state.current_editing_image_id = current_image_id
                 st.session_state.updated_comments = pre_comments.copy()
                 st.session_state.updated_suitable = suitable_slots.copy()
                 st.session_state.updated_recommended = recommended_slot
-                
                 st.info(f"✨ 画像 {current_image_id} の最新コメント・スロット設定を読み込みました")
 
+            # 各スロットのUI表示
             for slot_key, slot_name in time_slots.items():
                 st.write(f"### {slot_name}")
                 col1, col2, col3 = st.columns([3, 1, 1])
@@ -531,7 +595,6 @@ class ImageReviewSystem:
                         key=suitable_key,
                         type="primary" if slot_key in st.session_state.updated_suitable else "secondary"
                     )
-
                     if suitable_selected:
                         if slot_key in st.session_state.updated_suitable:
                             st.session_state.updated_suitable.remove(slot_key)
@@ -546,14 +609,13 @@ class ImageReviewSystem:
                         key=recommended_key,
                         type="primary" if slot_key == st.session_state.updated_recommended else "secondary"
                     )
-
                     if recommended_selected:
                         st.session_state.updated_recommended = slot_key
                         st.rerun()
 
                 current_comment = st.session_state.updated_comments.get(slot_key, "")
                 initial_value = "" if st.session_state.get('pending_reset', False) else current_comment
-                
+
                 updated_comment = st.text_area(
                     f"{slot_name}用コメント",
                     value=initial_value,
@@ -561,7 +623,6 @@ class ImageReviewSystem:
                     key=f"comment_{slot_key}_{current_image_id}_{st.session_state.reset_trigger}",
                     label_visibility="collapsed"
                 )
-
                 st.session_state.updated_comments[slot_key] = updated_comment
                 st.divider()
 
@@ -572,15 +633,12 @@ class ImageReviewSystem:
                 st.session_state.updated_comments = {}
                 st.session_state.updated_suitable = []
                 st.session_state.updated_recommended = 'general'
-                
                 image_id = image_data['imageId']
                 if 'pending_updates' in st.session_state:
                     if image_id in st.session_state.pending_updates:
                         del st.session_state.pending_updates[image_id]
-                
                 st.session_state.reset_trigger += 1
                 st.session_state.pending_reset = True
-                
                 st.success("✅ すべての設定をリセットしました")
                 st.rerun()
 
@@ -589,10 +647,9 @@ class ImageReviewSystem:
         return st.session_state.updated_comments, st.session_state.updated_suitable, st.session_state.updated_recommended
 
     def clear_comment_settings_on_image_change(self):
-        """画像切り替え時のコメント設定クリア"""
+        """画像切り替え時のコメント設定クリア（既存機能完全保持）"""
         if 'current_editing_image_id' in st.session_state:
             del st.session_state.current_editing_image_id
-
         if 'updated_comments' in st.session_state:
             st.session_state.updated_comments = {}
 
@@ -600,7 +657,7 @@ class ImageReviewSystem:
         for key in list(st.session_state.keys()):
             if key.startswith('comment_'):
                 keys_to_clear.append(key)
-        
+
         for key in keys_to_clear:
             del st.session_state[key]
 
@@ -609,9 +666,9 @@ class ImageReviewSystem:
         st.session_state.reset_trigger += 1
 
     def render_rejection_reason_tags(self, selected_image):
-        """却下理由選択のタグ風UI"""
+        """却下理由選択のタグ風UI（既存機能完全保持）"""
         st.subheader("🏷️ 却下理由選択")
-        
+
         REJECTION_REASONS = [
             "四肢欠損", "骨格崩れ", "手指崩れ", "足崩れ",
             "生成失敗", "顔面崩壊", "構図不良", "服装不適切",
@@ -657,7 +714,7 @@ class ImageReviewSystem:
         return st.session_state.selected_reasons, other_reason
 
     def update_image_status(self, image_id, status, rejection_reasons=None, other_reason=None, reviewer=None):
-        """画像ステータス更新"""
+        """画像ステータス更新（既存機能完全保持 + 11スロット対応）"""
         try:
             res = self.table.get_item(Key={'imageId': image_id})
             if 'Item' not in res:
@@ -680,7 +737,7 @@ class ImageReviewSystem:
             }
             expr_names = {}
 
-            # 現在のコメント・スロット設定を自動保存
+            # 現在のコメント・スロット設定を自動保存（11スロット対応）
             current_comments = st.session_state.get('updated_comments', {})
             current_suitable = st.session_state.get('updated_suitable', [])
             current_recommended = st.session_state.get('updated_recommended', 'general')
@@ -690,21 +747,19 @@ class ImageReviewSystem:
                 update_expr += ", suitableTimeSlots = :slots"
                 update_expr += ", recommendedTimeSlot = :recommended"
                 update_expr += ", commentGeneratedAt = :comment_time"
-                
                 expr_vals.update({
                     ':comments': current_comments,
                     ':slots': current_suitable,
                     ':recommended': current_recommended,
                     ':comment_time': now_iso
                 })
-                st.success("✅ 現在のコメント・スロット設定を自動保存しました")
+                st.success("✅ 現在のコメント・スロット設定を自動保存しました（11スロット対応）")
 
             # 却下理由の処理
             if status == "rejected":
                 reasons = []
                 if rejection_reasons and len(rejection_reasons) > 0:
                     reasons.extend(rejection_reasons)
-                
                 if other_reason and other_reason.strip():
                     reasons.append(other_reason.strip())
 
@@ -726,14 +781,12 @@ class ImageReviewSystem:
                 expr_vals[':rv'] = reviewer
 
             params = {'Key': {'imageId': image_id},
-                     'UpdateExpression': update_expr,
-                     'ExpressionAttributeValues': expr_vals}
-            
+                      'UpdateExpression': update_expr,
+                      'ExpressionAttributeValues': expr_vals}
             if expr_names:
                 params['ExpressionAttributeNames'] = expr_names
 
             self.table.update_item(**params)
-
             self.clear_comment_settings_on_image_change()
             st.info("🧹 承認・却下処理後にコメント設定をクリアしました")
 
@@ -752,11 +805,11 @@ class ImageReviewSystem:
             return False
 
     def get_statistics(self, days_back=7):
-        """統計情報取得"""
+        """統計情報取得（既存機能完全保持）"""
         try:
             response = self.table.scan(Limit=500)
             items = response['Items']
-            
+
             total_count = len(items)
             status_counts = {}
             highres_mode_counts = {}

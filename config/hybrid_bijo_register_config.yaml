@@ -1,4 +1,4 @@
-# Hybrid Bijo Register v9 設定ファイル
+# Hybrid Bijo Register v9 設定ファイル（11スロット対応版）
 
 # AWS設定
 aws:
@@ -34,17 +34,37 @@ error_handling:
   log_duplicate_errors: true
   continue_on_bedrock_errors: true
 
-# デフォルト時間帯スロット
+# 11スロット対応：デフォルト時間帯スロット
 default_suitable_slots:
-  [
-    "early_morning",
-    "morning",
-    "lunch",
-    "evening",
-    "night",
-    "mid_night",
-    "general",
-  ]
+  - "early_morning"   # 新追加: 05:00-07:59
+  - "morning"         # 既存: 08:00-09:59
+  - "late_morning"    # 新追加: 10:00-11:59
+  - "lunch"           # 既存: 12:00-13:59
+  - "afternoon"       # 新追加: 14:00-15:59
+  - "pre_evening"     # 新追加: 16:00-17:59
+  - "evening"         # 既存: 18:00-19:59
+  - "night"           # 既存: 20:00-21:59
+  - "late_night"      # 新追加: 22:00-23:59
+  - "mid_night"       # 既存: 00:00-04:59
+  - "general"         # 既存: フォールバック用
+
+# 11スロット対応：ジャンル別推奨時間帯マッピング（オプション）
+genre_slot_mapping:
+  gyal_erotic:
+    recommended: "night"
+    suitable: ["pre_evening", "evening", "night", "late_night", "general"]
+  gyal_black:
+    recommended: "evening"
+    suitable: ["afternoon", "pre_evening", "evening", "night", "general"]
+  seiso:
+    recommended: "morning"
+    suitable: ["early_morning", "morning", "late_morning", "lunch", "general"]
+  teen:
+    recommended: "afternoon"
+    suitable: ["morning", "late_morning", "lunch", "afternoon", "general"]
+  normal:
+    recommended: "general"
+    suitable: ["early_morning", "morning", "late_morning", "lunch", "afternoon", "pre_evening", "evening", "night", "late_night", "mid_night", "general"]
 
 # ログ設定
 logging:

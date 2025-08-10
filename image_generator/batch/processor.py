@@ -1,106 +1,55 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-"""
-BatchProcessor - 画像生成バッチ処理
-"""
-
-import time
-from typing import TYPE_CHECKING
 from common.logger import ColorLogger
-from common.timer import ProcessTimer
-from common.types import HybridGenerationError
-
-if TYPE_CHECKING:
-    from ..core.generator import HybridBijoImageGeneratorV7
+from typing import Dict, Any
+from ..core.generator import HybridBijoImageGeneratorV7, GenerationType
 
 class BatchProcessor:
-    """バッチ処理管理クラス"""
-
-    def __init__(self, generator: 'HybridBijoImageGeneratorV7', config: dict, logger=None):
-        """
-        Args:
-            generator: HybridBijoImageGeneratorV7 インスタンス
-            config: 設定 dict
-        """
+    """バッチ処理ラッパー"""
+    def __init__(self, generator: HybridBijoImageGeneratorV7, config: Dict[str, Any]):
         self.generator = generator
         self.config = config
-        self.logger = logger or ColorLogger()
+        self.logger = ColorLogger()
+        
+        # generatorインスタンスの検証とデバッグ出力
+        self.logger.print_status(f"Generator type: {type(self.generator).__name__}")
+        available_methods = [m for m in dir(self.generator) if not m.startswith('_') and callable(getattr(self.generator, m))]
+        self.logger.print_status(f"Available methods: {available_methods}")
+        
+        # 必要なメソッドの存在確認
+        if not hasattr(self.generator, 'generate_hybrid_image'):
+            raise AttributeError(f"generator instance lacks 'generate_hybrid_image' method. "
+                               f"Available methods: {available_methods}")
 
-    def generate_hybrid_image(self, gen_type, count=1) -> int:
-        """
-        単体または複数画像生成（モデル切替含む）
-        Returns 成功数
-        """
-        overall = ProcessTimer(self.logger)
-        overall.start(f"SDXL統合画像生成バッチ（{count}枚）")
+    def generate_hybrid_image(self, gen_type: GenerationType, count: int) -> int:
+        """単発生成 + 後続処理呼び出し"""
+        # 正しいメソッド名を使用
+        return self.generator.generate_hybrid_image(gen_type, count)
 
-        # モデル切替
-        try:
-            from ..core.model_manager import ModelManager
-            ModelManager(self.config).ensure_model_for_generation_type(gen_type)
-        except HybridGenerationError as e:
-            self.logger.print_error(f"❌ モデル切替失敗: {e}")
+    def generate_hybrid_batch(self, genre: str, count: int) -> int:
+        """指定ジャンルでバッチ実行"""
+        # ジャンル名に対応する GenerationType を探索
+        gt = next((g for g in self.generator.generation_types if g.name == genre), None)
+        if not gt:
+            self.logger.print_error(f"未定義ジャンル: {genre}")
             return 0
+        
+        # generate_hybrid_imageメソッドを使用
+        return self.generator.generate_hybrid_image(gt, count)
 
-        success = 0
-        for i in range(count):
-            img_timer = ProcessTimer(self.logger)
-            img_timer.start(f"画像{i+1}/{count}")
-            self.logger.print_stage(f"=== {gen_type.name} 生成開始 ({i+1}/{count}) ===")
-            try:
-                path, resp = self.generator._generate_single(gen_type, i)
-                success += 1
-                img_timer.end_and_report(1)
-            except Exception as e:
-                self.logger.print_error(f"❌ 生成エラー ({i+1}): {e}")
-                break
-
-        overall.end_and_report(success)
-        self.logger.print_stage(f"=== 完了: {success}/{count}枚 ===")
-        return success
-
-    def generate_hybrid_batch(self, genre: str, count: int=1) -> int:
-        """
-        ジャンル別バッチ生成
-        """
-        # 生成タイプ取得
-        gen_type = next((gt for gt in self.generator.generation_types if gt.name==genre), None)
-        if not gen_type:
-            self.logger.print_error(f"❌ ジャンル '{genre}' が見つかりません")
-            return 0
-        return self.generate_hybrid_image(gen_type, count)
-
-    def generate_daily_hybrid_batch(self):
-        """
-        日次バッチ生成
-        """
-        if self.config.get('local_execution', {}).get('enabled', False):
-            self.logger.print_warning("⚠️ ローカルモードでは日次バッチ非推奨")
-            if input("続行しますか？ (y/N): ").lower()!='y':
-                self.logger.print_status("キャンセル")
-                return
-
-        overall = ProcessTimer(self.logger)
-        overall.start("1日分SDXL統合画像生成バッチ")
-
-        batch_size = self.config['generation']['batch_size']
-        genres = self.config['generation']['genres']
-        dist = self.config['generation'].get('genre_distribution', {})
-
-        for idx, genre in enumerate(genres):
-            ratio = dist.get(genre, 1.0/len(genres))
-            num = max(1, int(batch_size*ratio))
-            if idx==0:
-                allocated = sum(int(batch_size*dist.get(g,1.0/len(genres))) for g in genres)
-                num += batch_size - allocated
-
-            self.logger.print_status(f"{genre}: {num} 枚生成予定")
-            self.generate_hybrid_batch(genre, num)
-
-            if idx < len(genres)-1:
-                self.logger.print_status("🧹 ジャンル間メモリクリーンアップ")
-                time.sleep(60)
-
-        overall.end_and_report()
-        self.logger.print_stage("=== 日次バッチ生成完了 ===")
+    def generate_daily_hybrid_batch(self) -> None:
+        """日次バッチ呼び出し"""
+        # 日次バッチ用の適切なメソッドを確認
+        if hasattr(self.generator, 'generate_daily_batch'):
+            self.generator.generate_daily_batch()
+        elif hasattr(self.generator, 'generate_daily_hybrid_batch'):
+            self.generator.generate_daily_hybrid_batch()
+        else:
+            self.logger.print_error("日次バッチ用メソッドが見つかりません")
+            # フォールバック：複数ジャンルで個別実行
+            batch_size = self.config.get('generation', {}).get('batch_size', 5)
+            total_success = 0
+            
+            for gt in self.generator.generation_types:
+                success = self.generator.generate_hybrid_image(gt, 1)
+                total_success += success
+                
+            self.logger.print_success(f"フォールバック日次バッチ完了: {total_success}件")
