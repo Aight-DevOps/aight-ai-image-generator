@@ -98,14 +98,14 @@ hand_foot_enhancement:
   strict_anatomy_mode: true
   additional_negative_weight: 1.4
   hand_specific_prompts:
-    - "perfect hands"
-    - "five fingers"
-    - "correct finger count"
-    - "natural hand pose"
+    - "(perfect hands:1.3)"
+    - "(five fingers:1.3)"
+    - "(correct finger count:1.3)"
+    - "(natural hand pose:1.3)"
   foot_specific_prompts:
-    - "two legs only"
-    - "correct leg anatomy"
-    - "proper foot structure"
+    - "(two legs only:1.3)"
+    - "(correct leg anatomy:1.3)"
+    - "(proper foot structure:1.3)"
 
 # Bedrock機能設定
 bedrock_features:
@@ -179,7 +179,7 @@ posting:
 
 # 画像生成設定
 generation:
-  batch_size: 10
+  batch_size: 20
   daily_generation_target: 8
   genres:
     - normal
@@ -190,9 +190,9 @@ generation:
     - gyal_erotic
   priority_genre: "normal"
   genre_distribution:
-    normal: 0.2
-    seiso: 0.2
-    teen: 0.2
+    normal: 0.4
+    seiso: 0.0
+    teen: 0.0
     gyal_black: 0.2
     gyal_natural: 0.2
     gyal_erotic: 0.2

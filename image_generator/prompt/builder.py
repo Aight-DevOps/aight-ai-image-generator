@@ -24,6 +24,7 @@ class PromptBuilder:
         self.user_prompts = prompts_data.get('user_prompts', {})
         self.negative_prompts = prompts_data.get('negative_prompts', {})
         self.anatomy_prompts = prompts_data.get('anatomy_prompts', {})
+        self.single_person_prompts = prompts_data.get('single_person_prompts', {})
         
         # 手足強化設定
         self.hand_foot_enhancement = config.get('hand_foot_enhancement', {})
@@ -70,6 +71,13 @@ class PromptBuilder:
             self.quality_prompts.get('sdxl_unified', ''),
             self.face_prompts.get('sdxl_unified', ''),
             self.body_prompts.get('sdxl_unified', ''),
+            self.anatomy_prompts.get('accurate_hands', ''),
+            self.anatomy_prompts.get('accurate_feet', ''),
+            self.anatomy_prompts.get('perfect_anatomy', ''),
+            self.anatomy_prompts.get('neck_position', ''),
+            self.anatomy_prompts.get('skeletal_structure', ''),
+            self.anatomy_prompts.get('full_anatomy', ''),
+            self.single_person_prompts.get('solo_emphasis', ''),
             self.user_prompts.get('nsfw_content', ''),
             self.user_prompts.get('ethnicity', ''),
             str(gen_type.prompt) if gen_type.prompt else ''
