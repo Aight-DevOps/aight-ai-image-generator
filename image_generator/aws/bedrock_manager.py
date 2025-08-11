@@ -29,13 +29,9 @@ class BedrockManager:
 
     def generate_all_timeslot_comments(self, image_metadata: dict) -> Dict[str, str]:
         """全時間帯のコメントを生成"""
-        # デバッグログ追加
-        self.logger.print_status("🔍 BedrockManager.generate_all_timeslot_comments 呼び出し開始")
-        self.logger.print_status(f"🔍 image_metadata keys: {list(image_metadata.keys())}")
-
         try:
             self.logger.print_status("🤖 Bedrock全時間帯コメント生成開始...")
-
+            
             response = self.lambda_client.invoke(
                 FunctionName=self.lambda_function_name,
                 InvocationType='RequestResponse',
@@ -44,36 +40,40 @@ class BedrockManager:
                     'image_metadata': image_metadata
                 })
             )
-
-            result = json.loads(response['Payload'].read())
-            body = json.loads(result['body'])
-
+            
+            # レスポンスの読み取りと検証
+            response_payload_raw = response['Payload'].read()
+            response_payload = json.loads(response_payload_raw)
+            
+            # デバッグ用：レスポンス全体をログ出力
+            self.logger.print_status(f"🔍 Lambda response keys: {list(response_payload.keys())}")
+            
+            # 'body'キーの存在確認
+            if 'body' not in response_payload:
+                self.logger.print_error("❌ Lambda response missing 'body' key")
+                self.logger.print_error(f"🔍 Full response: {response_payload}")
+                return {}
+                
+            body = json.loads(response_payload['body'])
+            
             if body.get('success'):
                 comments = body.get('all_comments', {})
                 self.logger.print_success(f"🤖 Bedrock全時間帯コメント生成完了: {len(comments)}件")
-                
-                # ConfigManagerから取得したスロット情報とLambda結果を照合
-                try:
-                    expected_slots = self.config_manager.get_all_time_slots()
-                    self.logger.print_status(f"🔍 ConfigManagerから取得した期待スロット数: {len(expected_slots)}")
-                    self.logger.print_status(f"🔍 Lambda から返されたコメント数: {len(comments)}")
-                    
-                    # 不足しているスロットがあれば警告
-                    missing_slots = [slot for slot in expected_slots if slot not in comments]
-                    if missing_slots:
-                        self.logger.print_warning(f"⚠️ 以下のスロットのコメントが不足しています: {missing_slots}")
-                        
-                except Exception as e:
-                    self.logger.print_warning(f"⚠️ ConfigManagerでのスロット照合エラー: {e}")
-                
                 return comments
             else:
                 self.logger.print_warning(f"⚠️ Bedrock生成失敗: {body.get('error')}")
                 return {}
-
+                
+        except json.JSONDecodeError as e:
+            self.logger.print_error(f"❌ JSON parsing error: {e}")
+            return {}
+        except KeyError as e:
+            self.logger.print_error(f"❌ Missing key in response: {e}")
+            return {}
         except Exception as e:
             self.logger.print_error(f"❌ Bedrock呼び出しエラー: {e}")
             return {}
+
 
     def generate_single_comment(self, image_metadata: dict, time_slot: str) -> str:
         """単一時間帯コメント生成"""
