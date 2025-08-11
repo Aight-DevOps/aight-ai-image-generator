@@ -5,7 +5,7 @@ quality_prompts:
   # SDXL統合プロンプト（Phase1+Phase2の品質要素を統合）
   # sdxl_unified: "(masterpiece:1.3), (best quality:1.2), (ultra highres:1.2), (ultra photorealistic:1.3), (professional photography:1.2), (crystal clear:1.2), (razor sharp focus:1.2), (ultra detailed RAW photo:1.2), (realistic skin texture:1.3), (detailed facial features:1.2), (crisp details:1.1), (natural skin lighting:1.1), (shallow depth of field:1.1), (DSLR quality:1.2)"
   # 肌の質感を向上
-  sdxl_unified: "(masterpiece:1.3), (best quality:1.2), (ultra highres:1.2), (ultra photorealistic:1.4), (professional photography:1.3), (crystal clear:1.2), (razor sharp focus:1.2), (ultra realistic RAW photo:1.4), (subtle shadows and highlights:1.2), (three-dimensional skin:1.1), (detailed facial features:1.2), (crisp details:1.1), (natural skin lighting:1.1), (shallow depth of field:1.1), (DSLR quality:1.2), (ultra realistic skin texture:1.3)"
+  sdxl_unified: "(masterpiece:1.3), (best quality:1.2), (ultra highres:1.2), (ultra photorealistic:1.4), (professional photography:1.3), (crystal clear:1.2), (razor sharp focus:1.2), (ultra realistic RAW photo:1.4), (subtle shadows and highlights:1.2), (three-dimensional skin:1.1), (detailed facial features:1.2), (crisp details:1.1), (natural skin lighting:1.1), (shallow depth of field:1.1), (DSLR quality:1.2), (ultra realistic skin texture:1.2)"
 
 # 統合顔プロンプト（SDXL最適化 + SD15顔強化統合）
 face_prompts:
@@ -24,7 +24,7 @@ body_prompts:
   # SDXL統合ボディプロンプト
   # sdxl_unified: "BREAK (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (perfect human anatomy:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (natural torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (skin glow:1.08), (smooth skin texture:1.08), full body, narrow waist, abs"
   # ボディの肌質もクリア化
-  sdxl_unified: "BREAK (perfect human anatomy:1.5), (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (correct torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (natural body shading:1.1), (subtle skin highlights:1.1), (healthy complexion:1.1), full body, (narrow waist:1.2), (abs:1.1), (ribs:1.1), BREAK (perfect hands:1.5), (five fingers:1.5), (proper hand anatomy:1.5)"
+  sdxl_unified: "BREAK (perfect human anatomy:1.5), (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (correct torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (natural body shading:1.1), (subtle skin highlights:1.1), (healthy complexion:1.1), full body, (narrow waist:1.2), (abs:1.1), (ribs:1.1), BREAK (perfect hands:1.5), (five fingers:1.5), (proper hand anatomy:1.5), <lora:HandFixer_pdxl_Incrs_v1:0.5>"
 # その他プロンプト（統合）
 other_prompts:
   ethnicity: ""
@@ -58,13 +58,13 @@ negative_prompts:
 
 # 解剖学プロンプト（簡潔化し強度アップ）
 anatomy_prompts:
-  accurate_hands: "BREAK (perfect hands:1.0), (five fingers:1.0)"
-  accurate_feet: "BREAK (two legs only:0.9), (correct leg anatomy:0.9)"
-  perfect_anatomy: "BREAK (perfect human anatomy:0.9), (anatomically correct:0.9)"
-  neck_position: "BREAK (correct neck position:1.0), (proper head alignment:1.0)"
-  skeletal_structure: "BREAK (correct skeletal structure:1.0), (proper bone alignment:1.0)"
-  full_anatomy: "BREAK (structural integrity:1.0), (balanced body composition:1.2)"
+  accurate_hands: "BREAK (perfect hands:1.3), (five fingers:1.3)"
+  accurate_feet: "BREAK (two legs only:1.3), (correct leg anatomy:1.3)"
+  perfect_anatomy: "BREAK (perfect human anatomy:1.3), (anatomically correct:1.3)"
+  neck_position: "BREAK (correct neck position:1.3), (proper head alignment:1.3)"
+  skeletal_structure: "BREAK (correct skeletal structure:1.3), (proper bone alignment:1.3)"
+  full_anatomy: "BREAK (structural integrity:1.2), (balanced body composition:1.2)"
 
 # 一人の人物生成強化プロンプト（最強化）
 single_person_prompts:
-  solo_emphasis: "BREAK (solo:1.7), (single person:1.7), (one girl:1.7), (alone:1.7), (individual:1.7), (only one person:1.7)"
+  solo_emphasis: "BREAK (solo:1.5), (1girl:1.4), (single person:1.3), (alone:1.2), (only one person:1.4)"
