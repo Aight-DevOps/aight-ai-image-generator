@@ -24,7 +24,7 @@ body_prompts:
   # SDXL統合ボディプロンプト
   # sdxl_unified: "BREAK (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (perfect human anatomy:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (natural torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (skin glow:1.08), (smooth skin texture:1.08), full body, narrow waist, abs"
   # ボディの肌質もクリア化
-  sdxl_unified: "BREAK (perfect human anatomy:1.5), (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (correct torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (natural body shading:1.1), (subtle skin highlights:1.1), (healthy complexion:1.1), full body, (narrow waist:1.2), (abs:1.1), (ribs:1.1), BREAK (perfect hands:1.5), (five fingers:1.5), (proper hand anatomy:1.5), <lora:HandFixer_pdxl_Incrs_v1:0.5>"
+  sdxl_unified: "BREAK (perfect human anatomy:1.5), (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (correct torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (natural body shading:1.1), (subtle skin highlights:1.1), (healthy complexion:1.1), full body, (narrow waist:1.2), (abs:1.1), (ribs:1.1), BREAK (perfect hands:1.5), (five fingers:1.5), (proper hand anatomy:1.5), (narural hand pose:1.5), <lora:HandFixer_pdxl_Incrs_v1:0.7>"
 # その他プロンプト（統合）
 other_prompts:
   ethnicity: ""
@@ -50,7 +50,8 @@ negative_prompts:
 
   # 手足専用を簡潔化し強度アップ
   hand_foot_negative: "BREAK (three legs:1.9), (four legs:1.9), (five legs:1.9), (extra legs:1.9), (too many legs:1.9), (multiple legs:1.9), (additional legs:1.9), (extra feet:1.9), (too many feet:1.9), (extra fingers:1.9), (too many fingers:1.9), (six fingers:1.9), (seven fingers:1.9), (deformed hands:1.9), (mutated hands:1.9), (extra hands:1.9), (six legs:1.9), (multiple feet:1.9), (eight fingers:1.9), (nine fingers:1.9), (deformed fingers:1.9), (poorly drawn hands:1.9), (malformed hands:1.8), (bad hands:1.9), (missing hands:1.4), (fused fingers:1.8), (webbed fingers:1.8), (extra limbs:1.9), (missing limb:1.4), (floating limbs:1.8), (disconnected limbs:1.8), (twisted limbs:1.8), (deformed limbs:1.8), (extra arms:1.9), (multiple arms:1.9), (additional appendages:1.9)"
-
+  # 新規追加：embeddingプレースホルダー
+  embedding_tokens: "{EMBEDDINGS}"
   # 首・骨格専用プロンプト（統合維持）
   # neck_skeleton_negative: "(twisted neck:1.4), (broken neck:1.4), (neck deformity:1.4), (unnatural neck angle:1.4), (elongated neck:1.4), (short neck:1.3), (neck distortion:1.4), (skeletal deformity:1.4), (bone distortion:1.4), (spinal deformity:1.4), (vertebrae distortion:1.4), (posture deformity:1.4), (spine curvature:1.3), (skeletal malformation:1.4), (bone structure error:1.4), (anatomical inconsistency:1.4), (structural deformity:1.4), (head tilt error:1.3), (shoulder misalignment:1.3), (torso twist:1.3), (unnatural pose:1.3), (impossible posture:1.3), (body proportion error:1.4), (structural imbalance:1.3)"
   # 首・骨格専用を簡潔化し最高強度に
