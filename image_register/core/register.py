@@ -413,10 +413,12 @@ class HybridBijoRegisterV9:
             print("🎨 Hybrid Bijo Register v9 - メイン メニュー")
             print("="*50)
             print("1. normal - 通常画像バッチ処理")
-            print("2. gyal - ギャル画像バッチ処理") 
-            print("3. seiso - 清楚画像バッチ処理")
-            print("4. teen - ティーン画像バッチ処理")
-            print("5. all - 全ジャンル一括処理")
+            print("2. gyal_black - 黒ギャル画像バッチ処理") 
+            print("3. gyal_natural - naturalギャル画像バッチ処理") 
+            print("4. gyal_erotic - エロギャル画像バッチ処理") 
+            print("5. seiso - 清楚画像バッチ処理")
+            print("6. teen - ティーン画像バッチ処理")
+            print("7. all - 全ジャンル一括処理")
             print("0. 終了")
             print("="*50)
             
@@ -429,15 +431,19 @@ class HybridBijoRegisterV9:
                 elif choice == "1":
                     self.process_batch("normal")
                 elif choice == "2":
-                    self.process_batch("gyal")
+                    self.process_batch("gyal_black")
                 elif choice == "3":
-                    self.process_batch("seiso")
+                    self.process_batch("gyal_natural")
                 elif choice == "4":
-                    self.process_batch("teen")
+                    self.process_batch("gyal_erotic")
                 elif choice == "5":
+                    self.process_batch("seiso")
+                elif choice == "6":
+                    self.process_batch("teen")
+                elif choice == "7":
                     self._process_all_genres()
                 else:
-                    print("❌ 無効な選択です。0-5の数字を入力してください。")
+                    print("❌ 無効な選択です。0-7の数字を入力してください。")
                     continue
                     
             except KeyboardInterrupt:

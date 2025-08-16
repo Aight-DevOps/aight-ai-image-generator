@@ -141,22 +141,14 @@ _Edit these YAML files to suit your environment and workflow._
 ### Image Generation
 
 ```text
-# Generate images of the "normal" genre by CUI menyu by batch
-cd image_generator
-python3 -m image_generator.main normal 5
-```
-
-```text
 # Generate images of the "normal" genre by CUI menu
-cd image_generator
-python3 -m image_generator.main normal 5
+python3 -m image_generator.main
 ```
 
 ### Image Registration (CLI)
 
 ```text
 # Register images in the "normal" directory
-cd image_register
 python3 -m image_register.main
 
 Follow the interactive menu to select genre and execute batch
@@ -166,8 +158,7 @@ Follow the interactive menu to select genre and execute batch
 
 ```text
 # Launch Streamlit app
-cd image_reviewer
-streamlit run main.py
+python3 -m streamlit run image_reviewer/main.py
 ```
 
 Access http://localhost:8501 in your browser.
