@@ -132,18 +132,70 @@ def daily_batch_generation():
         import traceback; traceback.print_exc()
 
 def pose_mode_setting():
-    """ポーズモード設定"""
-    print("\n🎯 ポーズモード設定")
-    print("1. 検出モード（入力画像ベース）")
-    print("2. 指定モード（プロンプトベース）")
+    """ポーズモード設定（永続化対応版）"""
+    from .core.generator import HybridBijoImageGeneratorV7
+    
+    try:
+        # ★ 修正: グローバルな設定永続化のため、設定ファイルに保存
+        import json
+        import os
+        
+        pose_config_file = "config/pose_mode.json"
+        
+        # 現在の設定読み込み
+        current_mode = "detection"
+        if os.path.exists(pose_config_file):
+            try:
+                with open(pose_config_file, 'r') as f:
+                    pose_config = json.load(f)
+                    current_mode = pose_config.get('pose_mode', 'detection')
+            except:
+                pass
+        
+        print(f"\n🎯 ポーズモード設定")
+        print(f"現在のモード: {current_mode}")
+        print("1. 検出モード（入力画像ベース・ControlNet使用）")
+        print("2. 指定モード（プロンプトベース・ControlNet無効）")
+        
+        choice = input("選択 (1-2): ").strip()
+        
+        if choice == "1":
+            new_mode = "detection"
+            print("✅ ポーズ検出モードに設定されました")
+            print("   - ControlNet (OpenPose + Depth) が有効になります")
+        elif choice == "2":
+            new_mode = "specification"
+            print("✅ ポーズ指定モードに設定されました")
+            print("   - ControlNetが無効になり、プロンプトベースのポーズが使用されます")
+        else:
+            print("❌ 無効な選択です")
+            return
+        
+        # ★ 修正: 設定を永続化
+        pose_config = {"pose_mode": new_mode}
+        os.makedirs(os.path.dirname(pose_config_file), exist_ok=True)
+        with open(pose_config_file, 'w') as f:
+            json.dump(pose_config, f)
+        
+        print(f"✅ ポーズモードが '{new_mode}' に保存されました")
+        
+        # ★ 新機能: テスト生成の提案
+        test_choice = input("\nテスト画像を1枚生成しますか？ (y/N): ").strip().lower()
+        if test_choice == 'y':
+            generator = HybridBijoImageGeneratorV7()
+            if generator.generation_types:
+                print("🎨 テスト画像生成中...")
+                success = generator.generate_hybrid_image(generator.generation_types[0], 1)
+                if success:
+                    print("✅ テスト画像生成完了！")
+                else:
+                    print("❌ テスト画像生成失敗")
+            
+    except Exception as e:
+        print(f"❌ ポーズモード設定エラー: {e}")
+        import traceback
+        traceback.print_exc()
 
-    choice = input("選択 (1-2): ").strip()
-    if choice == "1":
-        print("✅ ポーズ検出モードに設定されました")
-    elif choice == "2":
-        print("✅ ポーズ指定モードに設定されました")
-    else:
-        print("❌ 無効な選択です")
 
 def show_config():
     """設定確認"""

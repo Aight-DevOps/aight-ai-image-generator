@@ -34,24 +34,38 @@ class ImageProcessor:
 
     def preprocess_input_image(self, image_path: str) -> str:
         """
-        ControlNet-SDXL 用画像前処理（リサイズ）  
+        ControlNet-SDXL 用画像前処理（リサイズ）
         ポーズ指定モードではスキップ
         """
         if self.pose_mode == "specification":
             self.logger.print_status("🎯 ポーズ指定モード: 前処理スキップ")
             return None
 
-        self.logger.print_status("🔄 画像リサイズ開始")
-        w = self.sdxl_cfg.get('width')
-        h = self.sdxl_cfg.get('height')
-        img = Image.open(image_path).convert("RGB")
-        img = img.resize((w, h), Image.LANCZOS)
+        if not image_path or not os.path.exists(image_path):
+            self.logger.print_warning("⚠️ 入力画像が存在しません")
+            return None
 
-        out = os.path.join(self.temp_dir, "resized_sdxl_input.png")
-        img.save(out, "PNG", optimize=True, quality=self.input_cfg.get('resize_quality', 95))
-        size = os.path.getsize(out)
-        self.logger.print_success(f"✅ リサイズ完了: {size} bytes")
-        return out
+        self.logger.print_status("🔄 画像リサイズ開始（ポーズ検出モード）")
+
+        w = self.sdxl_cfg.get('width', 896)
+        h = self.sdxl_cfg.get('height', 1152)
+        
+        try:
+            img = Image.open(image_path).convert("RGB")
+            original_size = img.size
+            img = img.resize((w, h), Image.LANCZOS)
+            
+            out = os.path.join(self.temp_dir, "resized_sdxl_input.png")
+            img.save(out, "PNG", optimize=True, quality=self.input_cfg.get('resize_quality', 95))
+            
+            size = os.path.getsize(out)
+            self.logger.print_success(f"✅ リサイズ完了: {original_size} → {(w, h)}, {size} bytes")
+            return out
+            
+        except Exception as e:
+            self.logger.print_error(f"❌ 画像リサイズエラー: {e}")
+            return None
+
 
     def encode_image_to_base64(self, image_path: str) -> str:
         """画像を Base64 エンコード"""

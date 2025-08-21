@@ -3,7 +3,7 @@
 
 """
 PromptBuilder - プロンプト構築機能（完全版）
-ランダム要素統合とネガティブプロンプト強化
+ランダム要素統合とネガティブプロンプト強化 + ポーズ指定モード修正版
 """
 
 import os
@@ -11,7 +11,7 @@ from common.logger import ColorLogger
 
 class HandFootEmbeddingManager:
     """手足強化用Embedding管理クラス"""
-    
+
     def __init__(self, config: dict, logger):
         self.config = config
         self.logger = logger
@@ -20,62 +20,60 @@ class HandFootEmbeddingManager:
         self.global_enabled = self.hf_config.get('enabled', False)
         self.embedding_files = self.hf_config.get('embedding_files', [])
         self.placement = self.hf_config.get('embedding_placement', 'negative_prompt')
-    
+
     def validate_embedding_files(self) -> bool:
         """embeddingファイルの存在確認"""
         if not self.embeddings_enabled:
             return True
-            
+
         missing_files = []
         for embedding in self.embedding_files:
             file_path = embedding.get('file_path', '')
             if file_path and not os.path.exists(file_path):
                 missing_files.append(f"{embedding.get('name', 'unknown')} at {file_path}")
-        
+
         if missing_files:
             self.logger.print_warning("Missing embedding files:")
             for file in missing_files:
-                self.logger.print_warning(f"  ✗ {file}")
+                self.logger.print_warning(f" ✗ {file}")
             self.logger.print_warning("Download from: https://civitai.com/models/116230/bad-hands-5")
             return False
-        
+
         return True
-    
+
     def get_embedding_tokens(self) -> str:
         """使用するembeddingトークンを取得"""
         if not self.embeddings_enabled or not self.global_enabled:
             return ""
-        
+
         if not self.validate_embedding_files():
             return ""
-        
+
         tokens = []
         for embedding in self.embedding_files:
             name = embedding.get('name', '')
             weight = embedding.get('weight', 1.0)
             condition = embedding.get('condition', 'always')
-            
+
             # 条件チェック
             if condition == 'hands_enhancement_enabled' and not self.global_enabled:
                 continue
-                
+
             # トークン形式の決定
             if weight != 1.0:
                 token = f"({name}:{weight})"
             else:
                 token = name
-                
+
             tokens.append(token)
-        
+
         result = ", ".join(tokens)
         if result:
             self.logger.print_status(f"✓ Embedding tokens applied: {result}")
-        
         return result
 
-
 class PromptBuilder:
-    """プロンプト構築クラス（完全版）"""
+    """プロンプト構築クラス（完全版・ポーズ指定モード修正版）"""
 
     def __init__(self, config: dict, prompts_data: dict, gen_types_data: dict):
         self.config = config
@@ -148,20 +146,21 @@ class PromptBuilder:
             self.user_prompts.get('ethnicity', ''),
             str(gen_type.prompt) if gen_type.prompt else ''
         ]
+
         valid_parts = [p for p in parts if p and p.strip()]
         return ', '.join(valid_parts)
 
-    def _get_random_elements_prompt(self, gen_type):
-        """ランダム要素プロンプト取得（重要な修正）"""
+    def _get_random_elements_prompt(self, gen_type, pose_mode=None):
+        """ランダム要素プロンプト取得（pose_mode対応版）"""
         from ..randomization.element_generator import RandomElementGenerator
 
         # ランダム要素ジェネレーター初期化
         if not hasattr(self, '_element_generator'):
-            # random_elements.yamlからロード
             import yaml
             try:
                 with open('config/random_elements.yaml', 'r', encoding='utf-8') as f:
                     random_data = yaml.safe_load(f)
+                
                 self._element_generator = RandomElementGenerator(
                     random_data.get('specific_random_elements', {}),
                     random_data.get('general_random_elements', {}),
@@ -172,9 +171,9 @@ class PromptBuilder:
                 self.logger.print_warning(f"⚠️ ランダム要素読み込みエラー: {e}")
                 return ""
 
-        # ランダム要素生成
+        # ★ 重要な修正点: pose_modeを渡す
         try:
-            random_prompt = self._element_generator.generate_elements(gen_type)
+            random_prompt = self._element_generator.generate_elements(gen_type, pose_mode=pose_mode)
             self.logger.print_status(f"🎲 ランダム要素生成: {random_prompt[:50]}...")
             return random_prompt
         except Exception as e:
@@ -199,7 +198,7 @@ class PromptBuilder:
         for lora_setting in gen_type.lora_settings:
             lora_id = lora_setting.get('lora_id')
             strength_range = lora_setting.get('strength_range', [0.5, 1.0])
-
+            
             if not lora_id:
                 continue
 
@@ -223,6 +222,7 @@ class PromptBuilder:
         hand_prompts = self.hand_foot_enhancement.get('hand_specific_prompts', [])
         foot_prompts = self.hand_foot_enhancement.get('foot_specific_prompts', [])
         all_prompts = hand_prompts + foot_prompts
+
         return ', '.join(all_prompts)
 
     def _build_comprehensive_negative_prompt(self, gen_type):
@@ -251,7 +251,6 @@ class PromptBuilder:
         # Embedding統合
         embedding_manager = HandFootEmbeddingManager(self.config, self.logger)
         embedding_tokens = embedding_manager.get_embedding_tokens()
-        
         if embedding_tokens and embedding_manager.placement == 'negative_prompt':
             negative_parts.append(embedding_tokens)
 
@@ -278,8 +277,8 @@ class PromptBuilder:
 
         return ', '.join(adetailer_parts)
 
-    def build_complete_prompts(self, gen_type, mode="auto", **kwargs):
-        """完全統合型プロンプト構築（全要素統合版 + embedding対応）"""
+    def build_complete_prompts(self, gen_type, mode="auto", pose_mode=None, pose_manager=None, **kwargs):
+        """完全統合型プロンプト構築（ポーズ指定モード修正版）"""
         try:
             # 1. 基本プロンプト
             base_prompt = self._build_base_prompt(gen_type)
@@ -287,54 +286,49 @@ class PromptBuilder:
             # 2. ランダム要素 (重要な修正)
             random_elements = ""
             if kwargs.get('include_random_elements', True):
-                random_elements = self._get_random_elements_prompt(gen_type)
+                # ★ 重要な修正点: pose_modeを渡す
+                random_elements = self._get_random_elements_prompt(gen_type, pose_mode=pose_mode)
 
-            # 3. 年齢プロンプト (新規追加)
+            # 3-6. 他のプロンプト要素（既存通り）
             age_prompt = ""
             if kwargs.get('include_age', True):
                 age_prompt = self._get_age_prompt(gen_type)
 
-            # 4. LoRAプロンプト (順序修正)
             lora_prompt = ""
             if kwargs.get('include_lora', True):
                 lora_prompt = self._get_lora_prompt(gen_type)
 
-            # 5. ポーズプロンプト (順序修正)
             pose_prompt = ""
             if kwargs.get('include_pose', True):
-                pose_prompt = self._get_pose_prompt(gen_type)
+                # ★ 修正: pose_managerを直接使用
+                pose_prompt = self._get_pose_prompt(gen_type, pose_manager)
 
-            # 6. 手足強化プロンプト
             hand_foot_prompt = self._get_hand_foot_prompt()
 
-            # 7. Embedding管理初期化
+            # 7-8. 統合処理（既存通り）
             embedding_manager = HandFootEmbeddingManager(self.config, self.logger)
             embedding_tokens = embedding_manager.get_embedding_tokens()
 
-            # 8. 統合プロンプト構築 (正しい順序で)
             prompt_parts = [
                 base_prompt,
                 random_elements,
                 age_prompt,
                 hand_foot_prompt,
                 pose_prompt,
-                lora_prompt  # LoRAは最後に配置
+                lora_prompt
             ]
 
-            # Embeddingをポジティブプロンプトに追加する場合
             if embedding_tokens and embedding_manager.placement == 'positive_prompt':
                 prompt_parts.append(embedding_tokens)
 
             final_prompt = ', '.join([part for part in prompt_parts if part and part.strip()])
 
-            # 9. ネガティブプロンプト (完全版 + embedding対応)
+            # 9. ネガティブプロンプト（既存通り）
             negative_prompt = self._build_comprehensive_negative_prompt(gen_type)
             adetailer_negative = self._build_adetailer_negative_prompt(gen_type)
 
             self.logger.print_success(f"✅ 完全統合プロンプト構築完了 (長さ: {len(final_prompt)})")
             self.logger.print_status(f"🎲 ランダム要素: {random_elements[:50]}...")
-            self.logger.print_status(f"🔧 LoRA: {lora_prompt[:50]}...")
-            self.logger.print_status(f"🎯 ポーズ: {pose_prompt[:50]}...")
 
             return final_prompt, negative_prompt, adetailer_negative
 
@@ -342,13 +336,18 @@ class PromptBuilder:
             self.logger.print_error(f"❌ 完全統合プロンプト構築エラー: {e}")
             return gen_type.prompt, gen_type.negative_prompt, ""
 
-    def _get_pose_prompt(self, gen_type):
-        """ポーズプロンプト取得 (新規追加)"""
+    def _get_pose_prompt(self, gen_type, pose_manager=None):
+        """ポーズプロンプト取得（修正版・pose_manager直接使用）"""
         try:
-            from ..prompt.pose_manager import PoseManager
-            if not hasattr(self, '_pose_manager'):
-                self._pose_manager = PoseManager({})
-            return self._pose_manager.generate_pose_prompt(gen_type)
+            if pose_manager:
+                # ★ 修正: 渡されたpose_managerを使用
+                pose_prompt = pose_manager.generate_pose_prompt(gen_type)
+                if pose_prompt:
+                    self.logger.print_status(f"🎯 ポーズプロンプト生成: {pose_prompt}")
+                return pose_prompt
+            else:
+                self.logger.print_warning("⚠️ PoseManagerが提供されていません")
+                return ""
         except Exception as e:
             self.logger.print_warning(f"⚠️ ポーズプロンプト生成エラー: {e}")
             return ""
