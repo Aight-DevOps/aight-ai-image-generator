@@ -24,7 +24,7 @@ body_prompts:
   # SDXL統合ボディプロンプト
   # sdxl_unified: "BREAK (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (perfect human anatomy:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (natural torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (skin glow:1.08), (smooth skin texture:1.08), full body, narrow waist, abs"
   # ボディの肌質もクリア化
-  sdxl_unified: "BREAK (perfect human anatomy:1.5), (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (correct torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (natural body shading:1.1), (subtle skin highlights:1.1), (healthy complexion:1.1), full body, (narrow waist:1.2), (abs:1.1), (ribs:1.1), BREAK (perfect hands:1.5), (five fingers:1.5), (proper hand anatomy:1.5), (narural hand pose:1.5), <lora:HandFixer_pdxl_Incrs_v1:0.7>"
+  sdxl_unified: "BREAK (perfect human anatomy:1.5), (glamorous and perfect body:1.2), (slim waist:1.2), (toned waist and abs:1.2), (anatomically correct skeleton:1.4), (correct body proportions:1.4), (realistic bone structure:1.3), (proper joint alignment:1.3), (proper spine alignment:1.4), (correct shoulder position:1.3), (correct torso proportions:1.3), (well-proportioned body:1.07), (hourglass figure:1.1), (natural body shading:1.1), (subtle skin highlights:1.1), (healthy complexion:1.1), full body, (narrow waist:1.2), (abs:1.1), (ribs:1.1), BREAK (perfect hands:1.5), (five fingers:1.5), (proper hand anatomy:1.5), (natural hand pose:1.7), <lora:HandFixer_pdxl_Incrs_v1:0.7>"
 # その他プロンプト（統合）
 other_prompts:
   ethnicity: ""
@@ -60,11 +60,11 @@ negative_prompts:
 # 解剖学プロンプト（簡潔化し強度アップ）
 anatomy_prompts:
   accurate_hands: "BREAK (perfect hands:1.3), (five fingers:1.3)"
-  accurate_feet: "BREAK (two legs only:1.3), (correct leg anatomy:1.3)"
-  perfect_anatomy: "BREAK (perfect human anatomy:1.3), (anatomically correct:1.3)"
-  neck_position: "BREAK (correct neck position:1.3), (proper head alignment:1.3)"
-  skeletal_structure: "BREAK (correct skeletal structure:1.3), (proper bone alignment:1.3)"
-  full_anatomy: "BREAK (structural integrity:1.2), (balanced body composition:1.2)"
+  accurate_feet: "BREAK (two legs only:1.3), (correct body anatomy:1.5)"
+  perfect_anatomy: "BREAK (perfect human anatomy:1.5), (anatomically correct:1.5)"
+  neck_position: "BREAK (correct neck position:1.5), (proper head alignment:1.5)"
+  skeletal_structure: "BREAK (correct skeletal structure:1.2), (proper bone alignment:1.2)"
+  full_anatomy: "BREAK (structural integrity:1.5), (balanced body composition:1.5)"
 
 # 一人の人物生成強化プロンプト（最強化）
 single_person_prompts:

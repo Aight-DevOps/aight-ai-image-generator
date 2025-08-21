@@ -74,9 +74,36 @@ class GeneratorEngine:
                 self.logger.print_status("🎯 ControlNet 無効")
 
             # 3. ADetailer
-            payload["alwayson_scripts"]["adetailer"] = {
-                "args": [
-                    {
+            adetailer_args = []
+            
+            # 新しいmodels設定があるかチェック
+            if 'models' in self.adetailer and self.adetailer['models']:
+                # 複数モデル設定を使用
+                for model_config in self.adetailer['models']:
+                    if model_config.get('model', 'None') != 'None':
+                        adetailer_args.append({
+                            "ad_model": model_config['model'],
+                            "ad_prompt": prompt,
+                            "ad_negative_prompt": adetailer_negative,
+                            "ad_confidence": model_config.get('confidence', 0.3),
+                            "ad_mask_blur": model_config.get('mask_blur', 4),
+                            "ad_denoising_strength": model_config.get('denoising_strength', 0.4),
+                            "ad_inpaint_only_masked": model_config.get('inpaint_only_masked', True),
+                            "ad_inpaint_only_masked_padding": model_config.get('inpaint_only_masked_padding', 32),
+                            "ad_inpaint_width": model_config.get('inpaint_width', 512),
+                            "ad_inpaint_height": model_config.get('inpaint_height', 640),
+                            "ad_use_steps": model_config.get('use_steps', False),
+                            "ad_steps": model_config.get('steps', 12),
+                            "ad_use_cfg_scale": model_config.get('use_cfg_scale', False),
+                            "ad_cfg_scale": model_config.get('cfg_scale', 6.5),
+                            "is_api": []
+                        })
+                
+                self.logger.print_status(f"🔧 ADetailer: {len(adetailer_args)}個のモデルを設定")
+            else:
+                # 後方互換性: 既存の単一モデル設定を使用
+                if self.adetailer.get('model', 'None') != 'None':
+                    adetailer_args.append({
                         "ad_model": self.adetailer['model'],
                         "ad_prompt": prompt,
                         "ad_negative_prompt": adetailer_negative,
@@ -92,9 +119,18 @@ class GeneratorEngine:
                         "ad_use_cfg_scale": self.adetailer['use_cfg_scale'],
                         "ad_cfg_scale": self.adetailer['cfg_scale'],
                         "is_api": []
-                    }
-                ]
-            }
+                    })
+                
+                self.logger.print_warning("⚠️ ADetailer: 旧設定を使用中（単一モデル）")
+            
+            # ADetailerの設定をpayloadに追加
+            if adetailer_args:
+                payload["alwayson_scripts"]["adetailer"] = {
+                    "args": adetailer_args
+                }
+                self.logger.print_success(f"✅ ADetailer設定完了: {len(adetailer_args)}個のモデル")
+            else:
+                self.logger.print_status("📋 ADetailer: 無効またはモデル未設定")
 
             # 4. API 呼び出し
             start = time.time()
