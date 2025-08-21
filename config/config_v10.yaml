@@ -24,7 +24,7 @@ sdxl_generation:
   width: 896
   height: 1152
   steps: 30
-  cfg_scale: 7.0
+  cfg_scale: 6.5
   sampler_name: "DPM++ 2M Karras"
   scheduler: "karras"
   denoising_strength: 0.0 # txt2img
@@ -54,7 +54,7 @@ controlnet:
     threshold_a: 0.5
     threshold_b: 0.5
     guidance_start: 0.0
-    guidance_end: 0.9
+    guidance_end: 0.7
     pixel_perfect: true
     control_mode: "ControlNet is more important"
   depth:
@@ -62,7 +62,7 @@ controlnet:
     # model: "control_depth_xl [4a0891d4]"
     model: "control_v11f1p_sd15_depth_fp16 [4b72d323]"
     module: "depth_midas"
-    weight: 0.3
+    weight: 0.6
     resize_mode: "Crop and Resize"
     processor_res: 512
     threshold_a: 0.5
@@ -75,18 +75,47 @@ controlnet:
 # ADetailer設定（一本化）
 adetailer:
   enabled: true
-  model: "face_yolov8n.pt"
-  confidence: 0.3
-  mask_blur: 4
-  denoising_strength: 0.35
-  inpaint_only_masked: true
-  inpaint_only_masked_padding: 32
-  inpaint_width: 512
-  inpaint_height: 640
-  use_steps: false
-  steps: 12
-  use_cfg_scale: false
-  cfg_scale: 6.5
+  # 複数モデル設定に変更
+  models:
+    - name: "face"
+      model: "face_yolov8n.pt"
+      confidence: 0.3
+      mask_blur: 4
+      denoising_strength: 0.35
+      inpaint_only_masked: true
+      inpaint_only_masked_padding: 32
+      inpaint_width: 512
+      inpaint_height: 640
+      use_steps: false
+      steps: 12
+      use_cfg_scale: false
+      cfg_scale: 6.5
+    - name: "hands"
+      model: "hand_yolov8n.pt"
+      confidence: 0.5 # 手は検出が困難なため少し高めに設定
+      mask_blur: 2 # 手は細かい部分なのでブラーを少なめに
+      denoising_strength: 0.7 # 手は大幅な修正が必要なので強めに
+      inpaint_only_masked: true
+      inpaint_only_masked_padding: 24 # 手は小さいので少なめに
+      inpaint_width: 512 # 手専用の小さめサイズ
+      inpaint_height: 640
+      use_steps: false
+      steps: 20 # 手は詳細な生成が必要なので多めに
+      use_cfg_scale: false
+      cfg_scale: 7.0
+    # - name: "legs" # bodyから名称変更
+    #   model: "person_yolov8n-seg.pt"
+    #   confidence: 0.25 # 0.3→0.25 より慎重に
+    #   mask_blur: 6 # 4→6 境界をより滑らかに
+    #   denoising_strength: 0.20 # 0.35→0.25 より控えめに
+    #   inpaint_only_masked: true
+    #   inpaint_only_masked_padding: 32 # 32→48 より広い範囲で自然に
+    #   inpaint_width: 512
+    #   inpaint_height: 768 # 640→768 縦長比率で足に最適化
+    #   use_steps: false
+    #   steps: 10 # 12→10 過度な修正を抑制
+    #   use_cfg_scale: false
+    #   cfg_scale: 6.0 # 6.5→6.0 より自然に
 
 # 手足強化用プロンプト
 hand_enhancement_prompt: "perfect hands, five fingers, natural pose, correct anatomy"
@@ -102,6 +131,14 @@ hand_foot_enhancement:
     - "(five fingers:1.3)"
     - "(correct finger count:1.3)"
     - "(natural hand pose:1.3)"
+    - "(detailed fingernails:1.2)" # 追加
+    - "(proper thumb position:1.2)" # 追加
+  hand_detection_enhancement:
+    enabled: true
+    detection_confidence: 0.4
+    pre_processing_blur: 1
+    post_processing_sharpen: true
+    finger_count_validation: true
   foot_specific_prompts:
     - "(two legs only:1.3)"
     - "(correct leg anatomy:1.3)"
@@ -109,11 +146,11 @@ hand_foot_enhancement:
   # 新規追加：embedding設定
   use_embeddings: true
   embedding_files:
-    - name: "bad-hands-5"
+    - name: "(bad-hands-5)"
       file_path: "/mnt/e/Repository/stable-diffusion/embeddings/bad-hands-5.pt"
-      weight: 1.3
+      weight: 1.0
       condition: "hands_enhancement_enabled"
-  embedding_placement: "negative_prompt" # negative_prompt または positive_prompt
+  embedding_placement: "positive_prompt" # negative_prompt または positive_prompt
 
 # Bedrock機能設定
 bedrock_features:
