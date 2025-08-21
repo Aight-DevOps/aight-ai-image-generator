@@ -24,28 +24,32 @@ class RandomElementGenerator:
         
         self.logger.print_success("✅ RandomElementGenerator初期化完了")
 
-    def generate_elements(self, gen_type, max_general: int = 3) -> str:
-        """ランダム要素生成メイン（完全版）"""
+    def generate_elements(self, gen_type, pose_mode=None, max_general: int = 3) -> str:
+        """ランダム要素生成メイン（pose_mode対応版）"""
         additional_prompt_parts = []
-        
         try:
             # 生成タイプのランダム要素を処理
             if hasattr(gen_type, 'random_elements') and gen_type.random_elements:
-                for element_type in gen_type.random_elements:
+                # ★ 重要な修正点: ポーズ検出モード時は「poses」を除外
+                element_types = gen_type.random_elements.copy()
+                if pose_mode == "detection" and "poses" in element_types:
+                    element_types.remove("poses")
+                    self.logger.print_status(f"🚫 ポーズ検出モードのため「poses」要素をスキップしました")
+                
+                for element_type in element_types:
                     element_text = self._generate_single_element(element_type)
                     if element_text:
                         additional_prompt_parts.append(element_text)
-                        self.logger.print_status(f"🎲 {element_type}: {element_text}")
-            
+                    self.logger.print_status(f"🎲 {element_type}: {element_text}")
+                    
             # 結果統合
             result = ', '.join(additional_prompt_parts)
             self.logger.print_success(f"✅ ランダム要素生成完了: {len(additional_prompt_parts)}個")
-            
             return result
-            
         except Exception as e:
             self.logger.print_error(f"❌ ランダム要素生成エラー: {e}")
             return ""
+
 
     def _generate_single_element(self, element_type: str) -> str:
         """単一要素のランダム生成"""

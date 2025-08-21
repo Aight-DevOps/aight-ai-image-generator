@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
 Hybrid Bijo Image Generator v7.0 - コア画像生成クラス（11スロット対応版）
-修正版: bedrock_manager属性エラー対応 + Bedrock呼び出し修正
+修正版: bedrock_manager属性エラー対応 + Bedrock呼び出し修正 + ポーズ指定モード修正
 """
 
 import os
@@ -53,7 +54,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # JST タイムゾーン
 JST = timezone(timedelta(hours=9))
 
-
 class HybridBijoImageGeneratorV7:
     """美少女画像SDXL統合生成クラス v7.0（11スロット対応版）"""
 
@@ -83,6 +83,7 @@ class HybridBijoImageGeneratorV7:
             # 全スロット名を取得
             self.all_time_slots = cfg_mgr.get_all_time_slots()
             self.default_suitable_slots = cfg_mgr.get_default_suitable_slots()
+            
             self.logger.print_success(f"✅ 11スロット対応機能初期化完了 - 総スロット数: {len(self.all_time_slots)}")
             self.logger.print_status(f"📋 利用可能スロット: {', '.join(self.all_time_slots)}")
         except Exception as e:
@@ -120,6 +121,7 @@ class HybridBijoImageGeneratorV7:
         for t in gen_types_data.get('generation_types', []):
             if t.get('name') in ['teen', 'jk']:
                 t['age_range'] = [18, 20]
+            
             gt = GenerationType(
                 name=t.get('name', 'default'),
                 model_name=t.get('model_name', 'default.safetensors'),
@@ -129,6 +131,7 @@ class HybridBijoImageGeneratorV7:
                 age_range=t.get('age_range', [18, 24]),
                 lora_settings=t.get('lora_settings', [])
             )
+            
             gt.fast_mode = self.config.get('fast_mode', {}).get('enabled', False)
             gt.bedrock_enabled = self.config.get('bedrock_features', {}).get('enabled', False)
             gt.ultra_safe_mode = self.config.get('memory_management', {}).get('enabled', False)
@@ -200,6 +203,7 @@ class HybridBijoImageGeneratorV7:
         if not self.posting_schedule_mgr:
             self.logger.print_warning("⚠️ 11スロット機能が無効です")
             return None
+        
         try:
             now = datetime.now(JST)
             slot_name, hashtags = self.posting_schedule_mgr.get_current_time_slot_and_hashtags(now)
@@ -246,7 +250,7 @@ class HybridBijoImageGeneratorV7:
 
             self.logger.print_success(f"✅ 11スロット情報追加完了 - 推奨: {recommended_slot}")
             self.logger.print_status(f"📋 適合スロット({len(metadata['suitableTimeSlots'])}個): {', '.join(metadata['suitableTimeSlots'][:3])}...")
-
+            
         except Exception as e:
             # エラー時はフォールバック
             self.logger.print_warning(f"⚠️ 11スロット情報追加エラー、フォールバック値を使用: {e}")
@@ -275,6 +279,7 @@ class HybridBijoImageGeneratorV7:
         for i in range(count):
             img_timer = ProcessTimer(self.logger)
             img_timer.start(f"画像{i+1}/{count}")
+            
             try:
                 # 既存の生成ロジック + 11スロット対応
                 path, response = self._generate_single(gen_type, i)
@@ -290,25 +295,29 @@ class HybridBijoImageGeneratorV7:
 
     def _generate_single(self, gen_type: GenerationType, index: int):
         """
-        単発生成ワークフロー（既存機能完全保持 + 11スロット対応強化）
+        単発生成ワークフロー（ポーズモード対応修正版）
         """
         # ===============================================
-        # 既存の入力画像選択ロジック（完全保持）
+        # 既存の入力画像選択ロジック（修正版）
         # ===============================================
         if not self.input_pool:
             cfg = self.config.get('input_images', {})
             source_dir = cfg.get('source_directory', '/tmp/input')
             formats = cfg.get('supported_formats', ['jpg', 'jpeg', 'png'])
+            
             if not os.path.exists(source_dir):
                 os.makedirs(source_dir, exist_ok=True)
                 self.logger.print_warning(f"⚠️ 入力ディレクトリを作成しました: {source_dir}")
-
+            
             self.input_pool = InputImagePool(
                 source_dir, formats,
                 history_file=os.path.join(self.temp_dir, 'image_history.json')
             )
 
-        # 既存の入力画像取得ロジック（完全保持）
+        # ★ 修正: input_path を最初に初期化
+        input_path = None
+
+        # 既存の入力画像取得ロジック（修正版）
         try:
             input_path = self.input_pool.get_next_image()
             if input_path:
@@ -316,26 +325,50 @@ class HybridBijoImageGeneratorV7:
             else:
                 self.logger.print_status("🎯 ポーズ指定モード: 入力画像なし")
         except FileNotFoundError:
-            self.logger.print_warning("⚠️ 入力画像がないため、プロンプトのみで生成します")
             input_path = None
+            self.logger.print_warning("⚠️ 入力画像がないため、プロンプトのみで生成します")
+        except Exception as e:
+            input_path = None
+            self.logger.print_warning(f"⚠️ 入力画像取得エラー: {e}")
 
         # ===============================================
-        # 既存の前処理ロジック（完全保持）
+        # ポーズモード確認とデバッグ出力
         # ===============================================
-        proc = ImageProcessor(self.config, self.temp_dir, getattr(self.pose_manager, 'pose_mode', 'detection'))
-        if input_path:
+        # ★ 修正: ポーズモード取得の安全化
+        if hasattr(self.pose_manager, 'get_pose_mode'):
+            current_pose_mode = self.pose_manager.get_pose_mode()
+        else:
+            current_pose_mode = getattr(self.pose_manager, 'pose_mode', 'detection')
+
+        # None の場合のフォールバック
+        if current_pose_mode is None:
+            current_pose_mode = 'detection'
+
+        self.logger.print_status(f"🎯 現在のポーズモード: {current_pose_mode}")
+
+        # ===============================================
+        # 既存の前処理ロジック（pose_mode 伝達修正）
+        # ===============================================
+        proc = ImageProcessor(self.config, self.temp_dir, current_pose_mode)
+        
+        if input_path and current_pose_mode == "detection":
             resized = proc.preprocess_input_image(input_path)
             b64 = proc.encode_image_to_base64(resized)
+            self.logger.print_success(f"✅ 入力画像処理完了 (ポーズ検出モード)")
         else:
             resized = None
             b64 = None
+            if current_pose_mode == "specification":
+                self.logger.print_status("🎯 ポーズ指定モード: 入力画像処理をスキップ")
 
         # ===============================================
-        # 既存のプロンプト構築ロジック（完全保持）
+        # プロンプト構築（pose_manager 直接渡し・修正版）
         # ===============================================
         prompt, neg, ad_neg = self.prompt_builder.build_complete_prompts(
             gen_type,
             mode="auto",
+            pose_mode=current_pose_mode,
+            pose_manager=self.pose_manager,  # ★ 修正: pose_managerを直接渡す
             include_random_elements=True,
             include_lora=True,
             include_pose=True,
@@ -343,9 +376,9 @@ class HybridBijoImageGeneratorV7:
         )
 
         # ===============================================
-        # 既存の生成実行ロジック（完全保持）
+        # 生成実行（pose_mode 伝達）
         # ===============================================
-        engine = GeneratorEngine(self.config, getattr(self.pose_manager, 'pose_mode', 'detection'), self.logger)
+        engine = GeneratorEngine(self.config, current_pose_mode, self.logger)
         img_path, resp = engine.execute_generation(prompt, neg, ad_neg, input_b64=b64)
 
         # ===============================================
@@ -365,27 +398,26 @@ class HybridBijoImageGeneratorV7:
         # 既存の保存ロジック（11スロット対応強化）
         # ===============================================
         saver = ImageSaver(self.config, self.aws, self.temp_dir,
-                           local_mode=self.config.get('local_execution', {}).get('enabled', True))
-
+                          local_mode=self.config.get('local_execution', {}).get('enabled', True))
+        
         if self.config.get('local_execution', {}).get('enabled', True):
             # ローカル保存（既存機能 + 11スロット対応）
-            pose_mode = getattr(gen_type, 'pose_mode', 'detection')  # デフォルト値を設定
+            pose_mode = current_pose_mode  # ★ 修正: 正しいpose_modeを使用
             saver.save_image_locally(img_path, index, enhanced_resp, gen_type, input_path, pose_mode)
         else:
             # AWS保存（既存機能 + 11スロット対応）
-            pose_mode = getattr(self, 'pose_mode', 'detection')  # pose_modeを取得
+            pose_mode = current_pose_mode  # ★ 修正: 正しいpose_modeを使用
             saver.save_image_to_s3_and_dynamodb(img_path, index, enhanced_resp, gen_type, input_path, pose_mode)
 
         return img_path, enhanced_resp
 
     def _enhance_metadata_with_bedrock_comments(self, metadata: dict, gen_type, index: int) -> dict:
         """メタデータにBedrockコメントを追加（分離されたメソッド・修正版）"""
-        
         # デバッグログ追加
         self.logger.print_status(f"🔍 DEBUG: bedrock_manager存在確認 = {hasattr(self, 'bedrock_manager') and self.bedrock_manager is not None}")
         self.logger.print_status(f"🔍 DEBUG: local_execution.enabled = {self.config.get('local_execution', {}).get('enabled', True)}")
         self.logger.print_status(f"🔍 DEBUG: bedrock_features.enabled = {self.config.get('bedrock_features', {}).get('enabled', False)}")
-        
+
         # bedrock_manager属性の安全な確認
         if not hasattr(self, 'bedrock_manager') or self.bedrock_manager is None:
             self.logger.print_status("📋 BedrockManagerが初期化されていないため、コメント生成をスキップ")
@@ -396,13 +428,13 @@ class HybridBijoImageGeneratorV7:
         # 修正：ローカルモードの場合はBedrockを無効にする
         is_local_mode = self.config.get('local_execution', {}).get('enabled', True)
         is_bedrock_enabled = self.config.get('bedrock_features', {}).get('enabled', False)
-        
+
         if is_local_mode:
             self.logger.print_status("📋 ローカルモード: Bedrockコメント生成をスキップ")
             metadata['comments'] = self._get_fallback_comments()
             metadata['commentGeneratedAt'] = datetime.now(JST).isoformat()
             return metadata
-        
+
         if not is_bedrock_enabled:
             self.logger.print_status("📋 Bedrock機能が無効のため、コメント生成をスキップ")
             metadata['comments'] = {}
@@ -446,19 +478,18 @@ class HybridBijoImageGeneratorV7:
             'afternoon': "午後もお疲れ様！ティータイムで気分転換はいかが？🫖",
             'pre_evening': "もうすぐ夕方ですね！今日一日もあと少し頑張って🌅",
             'evening': "今日もお疲れ様でした！これからの予定はあるのかな？🌙",
-            'night': "今日もお疲れ様！夜の自分時間を大切に過ごしてね💆♀️",
+            'night': "今日もお疲れ様！夜の自分時間を大切に過ごしてね💆‍♀️",
             'late_night': "深夜だけど今夜はどんな時間を過ごしてる？🌃",
             'mid_night': "今日も一日お疲れ様でした！ゆっくり休んでおやすみなさい🌙✨",
             'general': "素敵な時間をお過ごしください💫"
         }
-    
+        
         self.logger.print_status(f"📝 ローカルモード: フォールバックコメント使用（{len(fallback_comments)}件）")
         return fallback_comments
 
     # ===============================================
     # 11スロット対応ユーティリティメソッド（新機能）
     # ===============================================
-
     def get_suitable_slots_for_genre(self, genre: str):
         """
         ジャンルに基づく適合スロット推奨（新機能）
@@ -508,7 +539,6 @@ class HybridBijoImageGeneratorV7:
             version = self.posting_schedule_mgr.get_config_version()
             self.logger.print_success(f"✅ 11スロット設定検証完了 - バージョン: {version}")
             return True
-
         except Exception as e:
             self.logger.print_error(f"❌ 11スロット設定検証エラー: {e}")
             return False
@@ -550,14 +580,13 @@ class HybridBijoImageGeneratorV7:
     # ===============================================
     # 既存メソッド保持用の追加メソッド
     # ===============================================
-
     def generate_daily_batch(self):
         """日次バッチ生成（既存機能保持）"""
         self.logger.print_stage("🗓️ 日次バッチ生成開始")
-
+        
         batch_size = self.config.get('generation', {}).get('batch_size', 5)
         total_success = 0
-
+        
         for gen_type in self.generation_types:
             try:
                 success = self.generate_hybrid_image(gen_type, batch_size)
@@ -566,7 +595,7 @@ class HybridBijoImageGeneratorV7:
             except Exception as e:
                 self.logger.print_error(f"❌ {gen_type.name}生成エラー: {e}")
                 continue
-
+        
         self.logger.print_stage(f"🎉 日次バッチ完了: 総計{total_success}枚生成")
         return total_success
 
@@ -576,6 +605,6 @@ class HybridBijoImageGeneratorV7:
             if os.path.exists(self.temp_dir):
                 shutil.rmtree(self.temp_dir)
                 os.makedirs(self.temp_dir, exist_ok=True)
-                self.logger.print_success("✅ 一時ファイル清理完了")
+            self.logger.print_success("✅ 一時ファイル清理完了")
         except Exception as e:
             self.logger.print_warning(f"⚠️ 一時ファイル清理エラー: {e}")

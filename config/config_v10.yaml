@@ -48,7 +48,7 @@ controlnet:
     # model: "OpenPoseXL2 [f4251cb4]"
     model: "control_v11p_sd15_openpose_fp16 [73c2b67d]"
     module: "dw_openpose_full"
-    weight: 0.8
+    weight: 0.5
     resize_mode: "Just Resize"
     processor_res: 512
     threshold_a: 0.5
@@ -56,13 +56,13 @@ controlnet:
     guidance_start: 0.0
     guidance_end: 0.7
     pixel_perfect: true
-    control_mode: "ControlNet is more important"
+    control_mode: "Balanced"
   depth:
     enabled: true
     # model: "control_depth_xl [4a0891d4]"
     model: "control_v11f1p_sd15_depth_fp16 [4b72d323]"
     module: "depth_midas"
-    weight: 0.6
+    weight: 0.4
     resize_mode: "Crop and Resize"
     processor_res: 512
     threshold_a: 0.5
