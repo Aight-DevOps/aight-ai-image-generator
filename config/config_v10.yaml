@@ -90,19 +90,19 @@ adetailer:
       steps: 12
       use_cfg_scale: false
       cfg_scale: 6.5
-    - name: "hands"
-      model: "hand_yolov8n.pt"
-      confidence: 0.5 # 手は検出が困難なため少し高めに設定
-      mask_blur: 2 # 手は細かい部分なのでブラーを少なめに
-      denoising_strength: 0.7 # 手は大幅な修正が必要なので強めに
-      inpaint_only_masked: true
-      inpaint_only_masked_padding: 24 # 手は小さいので少なめに
-      inpaint_width: 512 # 手専用の小さめサイズ
-      inpaint_height: 640
-      use_steps: false
-      steps: 20 # 手は詳細な生成が必要なので多めに
-      use_cfg_scale: false
-      cfg_scale: 7.0
+    # - name: "hands"
+    #   model: "hand_yolov8n.pt"
+    #   confidence: 0.5 # 手は検出が困難なため少し高めに設定
+    #   mask_blur: 2 # 手は細かい部分なのでブラーを少なめに
+    #   denoising_strength: 0.7 # 手は大幅な修正が必要なので強めに
+    #   inpaint_only_masked: true
+    #   inpaint_only_masked_padding: 24 # 手は小さいので少なめに
+    #   inpaint_width: 512 # 手専用の小さめサイズ
+    #   inpaint_height: 640
+    #   use_steps: false
+    #   steps: 20 # 手は詳細な生成が必要なので多めに
+    #   use_cfg_scale: false
+    #   cfg_scale: 7.0
     # - name: "legs" # bodyから名称変更
     #   model: "person_yolov8n-seg.pt"
     #   confidence: 0.25 # 0.3→0.25 より慎重に
@@ -150,7 +150,7 @@ hand_foot_enhancement:
       file_path: "/mnt/e/Repository/stable-diffusion/embeddings/bad-hands-5.pt"
       weight: 1.0
       condition: "hands_enhancement_enabled"
-  embedding_placement: "positive_prompt" # negative_prompt または positive_prompt
+  embedding_placement: "negative_prompt" # negative_prompt または positive_prompt
 
 # Bedrock機能設定
 bedrock_features:
