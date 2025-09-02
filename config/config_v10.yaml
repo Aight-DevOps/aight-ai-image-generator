@@ -47,16 +47,16 @@ controlnet:
     enabled: true
     # model: "OpenPoseXL2 [f4251cb4]"
     model: "control_v11p_sd15_openpose_fp16 [73c2b67d]"
-    module: "dw_openpose_full"
-    weight: 0.5
-    resize_mode: "Just Resize"
-    processor_res: 512
+    module: "openpose"
+    weight: 0.7
+    resize_mode: "Crop and Resize"
+    processor_res: 896
     threshold_a: 0.5
     threshold_b: 0.5
     guidance_start: 0.0
-    guidance_end: 0.7
+    guidance_end: 0.6
     pixel_perfect: true
-    control_mode: "Balanced"
+    control_mode: "My prompt is more important"
   depth:
     enabled: true
     # model: "control_depth_xl [4a0891d4]"
@@ -64,13 +64,13 @@ controlnet:
     module: "depth_midas"
     weight: 0.4
     resize_mode: "Crop and Resize"
-    processor_res: 512
+    processor_res: 768
     threshold_a: 0.5
     threshold_b: 0.5
     guidance_start: 0.0
-    guidance_end: 1.0
+    guidance_end: 0.6
     pixel_perfect: true
-    control_mode: "Balanced"
+    control_mode: "My prompt is more important"
 
 # ADetailer設定（一本化）
 adetailer:
