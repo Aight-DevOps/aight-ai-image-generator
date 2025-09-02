@@ -3,7 +3,7 @@
 
 """
 Hybrid Bijo Image Generator v7.0 - コア画像生成クラス（11スロット対応版）
-修正版: bedrock_manager属性エラー対応 + Bedrock呼び出し修正 + ポーズ指定モード修正
+修正版: bedrock_manager属性エラー対応 + Bedrock呼び出し修正 + ポーズ指定モード修正 + メモリ管理強化
 """
 
 import os
@@ -262,10 +262,14 @@ class HybridBijoImageGeneratorV7:
 
     def generate_hybrid_image(self, gen_type: GenerationType, count: int = 1) -> int:
         """
-        ハイブリッド画像生成（既存機能 + 11スロット対応強化）
+        ハイブリッド画像生成（メモリ管理強化版）
         """
         overall_timer = ProcessTimer(self.logger)
-        overall_timer.start(f"SDXL統合画像生成バッチ（{count}枚）- 11スロット対応版")
+        overall_timer.start(f"SDXL統合画像生成バッチ（{count}枚）- メモリ管理強化版")
+
+        # ★ 追加: バッチ開始前のメモリ状態確認
+        self.logger.print_status("🧠 バッチ開始前メモリ状態確認")
+        self.memory_manager.check_memory_usage()
 
         # 既存のモデル管理機能（完全保持）
         try:
@@ -281,21 +285,58 @@ class HybridBijoImageGeneratorV7:
             img_timer.start(f"画像{i+1}/{count}")
             
             try:
-                # 既存の生成ロジック + 11スロット対応
-                path, response = self._generate_single(gen_type, i)
+                # ★ 追加: 各生成前にメモリチェック
+                if i > 0:  # 初回はバッチ開始時にチェック済み
+                    self.memory_manager.check_memory_usage()
+
+                # メモリセーフ実行で生成
+                path, response = self._generate_single_with_memory_safety(gen_type, i)
                 success += 1
+                
+                # ★ 追加: 3回に1回は積極的クリーンアップ
+                if i > 0 and i % 3 == 0:
+                    self.logger.print_status("🧹 定期メモリクリーンアップ実行")
+                    self.memory_manager.perform_aggressive_memory_cleanup()
+                
                 img_timer.end_and_report(1)
+                
             except Exception as e:
                 self.logger.print_error(f"❌ 生成エラー: {e}")
+                # ★ 追加: エラー時もメモリクリーンアップ
+                try:
+                    self.logger.print_status("🧹 エラー発生時メモリクリーンアップ")
+                    self.memory_manager.perform_aggressive_memory_cleanup()
+                except Exception as cleanup_error:
+                    self.logger.print_warning(f"⚠️ エラー時メモリクリーンアップ失敗: {cleanup_error}")
                 break
 
+        # ★ 追加: バッチ完了後の最終クリーンアップ
+        try:
+            self.logger.print_status("🧹 バッチ完了後最終クリーンアップ実行")
+            self.memory_manager.perform_aggressive_memory_cleanup()
+        except Exception as e:
+            self.logger.print_warning(f"⚠️ 最終クリーンアップエラー: {e}")
+
         overall_timer.end_and_report(success)
-        self.logger.print_stage(f"=== 完了: {success}/{count} 枚（11スロット対応版） ===")
+        self.logger.print_stage(f"=== 完了: {success}/{count} 枚（メモリ管理強化版） ===")
         return success
+
+    def _generate_single_with_memory_safety(self, gen_type: GenerationType, index: int):
+        """
+        メモリセーフ実行でラップされた単発生成
+        """
+        def _safe_generation():
+            return self._generate_single(gen_type, index)
+        
+        # メモリ管理付きで生成実行
+        return self.memory_manager.execute_with_ultra_memory_safety(
+            _safe_generation, 
+            f"画像生成_{index+1}"
+        )
 
     def _generate_single(self, gen_type: GenerationType, index: int):
         """
-        単発生成ワークフロー（ポーズモード対応修正版）
+        単発生成ワークフロー（ポーズモード対応修正版 + メモリ管理強化）
         """
         # ===============================================
         # 既存の入力画像選択ロジック（修正版）
@@ -408,6 +449,28 @@ class HybridBijoImageGeneratorV7:
             # AWS保存（既存機能 + 11スロット対応）
             pose_mode = current_pose_mode  # ★ 修正: 正しいpose_modeを使用
             saver.save_image_to_s3_and_dynamodb(img_path, index, enhanced_resp, gen_type, input_path, pose_mode)
+
+        # ★ 追加: 生成完了後の明示的なメモリ管理
+        try:
+            self.logger.print_status("🧹 生成完了後メモリクリーンアップ開始")
+            
+            # 大きな変数を明示的に削除
+            if 'engine' in locals():
+                del engine
+            if 'proc' in locals():
+                del proc
+            if 'b64' in locals() and b64:
+                del b64
+            if 'resized' in locals() and resized:
+                del resized
+            
+            # 5回に1回は強制メモリチェック
+            if index % 5 == 0:
+                self.memory_manager.check_memory_usage(force_cleanup=True)
+                self.logger.print_success("✅ 強制メモリクリーンアップ完了")
+            
+        except Exception as e:
+            self.logger.print_warning(f"⚠️ 生成後メモリ管理エラー: {e}")
 
         return img_path, enhanced_resp
 
@@ -551,7 +614,7 @@ class HybridBijoImageGeneratorV7:
         """
         # 既存デバッグ情報
         debug_info = {
-            'version': '7.0_11slot_fixed',
+            'version': '7.0_11slot_memory_enhanced',
             'local_mode': self.config.get('local_execution', {}).get('enabled', True),
             'fast_mode': self.config.get('fast_mode', {}).get('enabled', False),
             'bedrock_enabled': self.config.get('bedrock_features', {}).get('enabled', False),
@@ -562,6 +625,10 @@ class HybridBijoImageGeneratorV7:
             'slot_feature_enabled': self.posting_schedule_mgr is not None,
             'total_slots': len(self.all_time_slots),
             'default_suitable_slots_count': len(self.default_suitable_slots),
+            # メモリ管理デバッグ情報（新規追加）
+            'memory_management_enabled': self.memory_manager.enabled,
+            'memory_threshold': self.memory_manager.threshold,
+            'auto_adjustment': self.memory_manager.auto_adjust,
         }
 
         if self.posting_schedule_mgr:
@@ -578,23 +645,38 @@ class HybridBijoImageGeneratorV7:
         return debug_info
 
     # ===============================================
-    # 既存メソッド保持用の追加メソッド
+    # 既存メソッド保持用の追加メソッド（メモリ管理強化）
     # ===============================================
     def generate_daily_batch(self):
-        """日次バッチ生成（既存機能保持）"""
-        self.logger.print_stage("🗓️ 日次バッチ生成開始")
+        """日次バッチ生成（メモリ管理強化版）"""
+        self.logger.print_stage("🗓️ 日次バッチ生成開始（メモリ管理強化版）")
         
         batch_size = self.config.get('generation', {}).get('batch_size', 5)
         total_success = 0
+        
+        # バッチ開始前の初期メモリクリーンアップ
+        self.memory_manager.perform_aggressive_memory_cleanup()
         
         for gen_type in self.generation_types:
             try:
                 success = self.generate_hybrid_image(gen_type, batch_size)
                 total_success += success
                 self.logger.print_status(f"📊 {gen_type.name}: {success}/{batch_size}枚成功")
+                
+                # 各ジャンル完了後のメモリクリーンアップ
+                self.memory_manager.perform_aggressive_memory_cleanup()
+                
             except Exception as e:
                 self.logger.print_error(f"❌ {gen_type.name}生成エラー: {e}")
+                # エラー時もメモリクリーンアップ
+                try:
+                    self.memory_manager.perform_aggressive_memory_cleanup()
+                except:
+                    pass
                 continue
+        
+        # 全バッチ完了後の最終クリーンアップ
+        self.memory_manager.perform_aggressive_memory_cleanup()
         
         self.logger.print_stage(f"🎉 日次バッチ完了: 総計{total_success}枚生成")
         return total_success

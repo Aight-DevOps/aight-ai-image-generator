@@ -133,6 +133,7 @@ class PromptBuilder:
         """基本プロンプト構築"""
         parts = [
             self.quality_prompts.get('sdxl_unified', ''),
+            str(gen_type.prompt) if gen_type.prompt else '',
             self.face_prompts.get('sdxl_unified', ''),
             self.body_prompts.get('sdxl_unified', ''),
             self.anatomy_prompts.get('accurate_hands', ''),
@@ -143,8 +144,7 @@ class PromptBuilder:
             self.anatomy_prompts.get('full_anatomy', ''),
             self.single_person_prompts.get('solo_emphasis', ''),
             self.user_prompts.get('nsfw_content', ''),
-            self.user_prompts.get('ethnicity', ''),
-            str(gen_type.prompt) if gen_type.prompt else ''
+            self.user_prompts.get('ethnicity', '')
         ]
 
         valid_parts = [p for p in parts if p and p.strip()]
